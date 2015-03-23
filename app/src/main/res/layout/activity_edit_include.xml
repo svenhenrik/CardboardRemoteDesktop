@@ -1,0 +1,97 @@
+<merge  xmlns:android="http://schemas.android.com/apk/res/android">
+<TextView
+    android:id="@+id/textViewName"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:text="@string/edit_name" />
+
+<EditText
+android:id="@+id/editTextName"
+android:layout_width="match_parent"
+android:layout_height="wrap_content"
+android:layout_alignParentLeft="true"
+android:layout_alignParentStart="true"
+android:layout_below="@+id/textViewName"
+android:singleLine="true" />
+
+<TextView
+android:id="@+id/textViewHost"
+android:layout_width="wrap_content"
+android:layout_height="wrap_content"
+android:layout_alignParentLeft="true"
+android:layout_alignParentStart="true"
+android:layout_below="@+id/editTextName"
+android:text="@string/edit_host" />
+
+<EditText
+android:id="@+id/editTextHost"
+android:layout_width="match_parent"
+android:layout_height="wrap_content"
+android:layout_alignParentLeft="true"
+android:layout_alignParentStart="true"
+android:layout_below="@+id/textViewHost"
+android:singleLine="true" />
+
+    <!--<TextView-->
+    <!--android:layout_width="wrap_content"-->
+    <!--android:layout_height="wrap_content"-->
+    <!--android:text="@string/edit_username"-->
+    <!--android:id="@+id/textViewUsername"-->
+    <!--android:layout_below="@+id/editTextHost"-->
+    <!--android:layout_alignParentLeft="true"-->
+    <!--android:layout_alignParentStart="true" />-->
+
+    <!--<EditText-->
+    <!--android:layout_width="match_parent"-->
+    <!--android:layout_height="wrap_content"-->
+    <!--android:id="@+id/editTextUsername"-->
+    <!--android:layout_below="@+id/textViewUsername"-->
+    <!--android:layout_alignParentLeft="true"-->
+    <!--android:layout_alignParentStart="true" />-->
+
+<TextView
+android:id="@+id/textViewPassword"
+android:layout_width="wrap_content"
+android:layout_height="wrap_content"
+android:layout_alignParentLeft="true"
+android:layout_alignParentStart="true"
+android:layout_below="@+id/editTextHost"
+android:text="@string/edit_password" />
+
+<EditText
+android:id="@+id/editTextPassword"
+android:layout_width="match_parent"
+android:layout_height="wrap_content"
+android:layout_alignParentLeft="true"
+android:layout_alignParentStart="true"
+android:layout_below="@+id/textViewPassword"
+android:ems="10"
+android:inputType="textPassword"
+android:singleLine="true" />
+
+<TextView
+android:id="@+id/textViewColormode"
+android:layout_width="wrap_content"
+android:layout_height="wrap_content"
+android:layout_alignParentLeft="true"
+android:layout_alignParentStart="true"
+android:layout_below="@+id/editTextPassword"
+android:text="@string/edit_colormode" />
+
+<Spinner
+android:id="@+id/spinner"
+android:layout_width="match_parent"
+android:layout_height="wrap_content"
+android:layout_alignParentLeft="true"
+android:layout_alignParentStart="true"
+android:layout_below="@+id/textViewColormode" />
+
+<CheckBox
+android:id="@+id/viewCheckBox"
+android:layout_width="wrap_content"
+android:layout_height="wrap_content"
+android:layout_alignParentLeft="true"
+android:layout_alignParentStart="true"
+android:layout_below="@+id/spinner"
+android:text="@string/edit_viewonly" />
+</merge>

@@ -1,0 +1,13 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:context="se.chai.cardboardremotedesktop.EditActivity">
+    <item
+        android:id="@+id/action_save"
+        android:title="@string/action_save"
+        android:icon="@drawable/ic_checkmark_holo_light"
+        android:orderInCategory="100"
+        app:showAsAction="ifRoom"
+        android:tint="@android:color/white"
+        />
+</menu>

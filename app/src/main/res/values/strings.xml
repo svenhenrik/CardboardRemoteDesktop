@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">Cardboard VNC</string>
+    <string name="edit_name">Name:</string>
+    <string name="edit_host">Host:Port</string>
+    <string name="edit_username">Username:</string>
+    <string name="edit_password">Password (optional):</string>
+    <string name="edit_colormode">Colors:</string>
+    <string name="edit_viewonly">Viewer mode</string>
+    <string name="action_save">Save</string>
+    <string name="action_settings">Settings</string>
+    <string name="title_activity_edit">Edit Server</string>
+    <string name="title_activity_settings">Preferences</string>
+    <string name="title_activity_preferences">Preferences</string>
+    <string name="hello_world">Hello world!</string>
+    <string name="screenconfig">Screen Configuration</string>
+    <string name="pref_camera">Camera Preview</string>
+    <string name="pref_camera_summ">Enable camera preview in viewer</string>
+    <string name="pref_screen_title">Screen</string>
+    <string name="pref_screenSize">Screen Size</string>
+    <string name="pref_screenSize_default">3</string>
+    <string name="pref_screenSize_summ">Select size of the virtual screen</string>
+    <string name="pref_screenType">Screen Layout</string>
+    <string name="pref_screenType_default">Medium</string>
+</resources>

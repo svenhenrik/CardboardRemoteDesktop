@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="colormode_types">
+        <item>24bit</item>
+        <item>256</item>
+        <item>64</item>
+    </string-array>
+
+    <string-array name="pref_screenSize_entries">
+        <item>Small</item>
+        <item>Medium</item>
+        <item>Big</item>
+    </string-array>
+    <string-array name="pref_screenSize_values">
+        <item>2</item>
+        <item>3</item>
+        <item>4</item>
+    </string-array>
+
+    <string-array name="pref_screenType_entries">
+        <item>Flat</item>
+        <item>Curved</item>
+    </string-array>
+
+    <string-array name="pref_screenType_values"></string-array>
+
+</resources>

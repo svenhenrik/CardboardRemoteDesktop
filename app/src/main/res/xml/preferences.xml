@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+    <CheckBoxPreference
+        android:defaultValue="false"
+        android:key="pref_camera"
+        android:summary="@string/pref_camera_summ"
+        android:title="@string/pref_camera" />
+    <!--    <PreferenceCategory
+            android:title="@string/pref_screen_title"
+            android:key="pref_key_screen_settings">-->
+    <ListPreference
+        android:defaultValue="@string/pref_screenSize_default"
+            android:dialogTitle="@string/pref_screenSize"
+            android:entries="@array/pref_screenSize_entries"
+            android:entryValues="@array/pref_screenSize_values"
+        android:key="pref_screenSize"
+        android:summary="@string/pref_screenSize_summ"
+        android:title="@string/pref_screenSize" />
+    <!--<ListPreference-->
+            <!--android:key="pref_screenType"-->
+            <!--android:title="@string/pref_screenType"-->
+            <!--android:dialogTitle="@string/pref_screenType"-->
+            <!--android:entries="@array/pref_screenType_entries"-->
+            <!--android:entryValues="@array/pref_screenType_entries"-->
+            <!--android:defaultValue="@string/pref_screenType_default" />-->
+    <!--    </PreferenceCategory>-->
+</PreferenceScreen>
