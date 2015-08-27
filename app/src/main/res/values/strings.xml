@@ -23,4 +23,12 @@
     <string name="pref_screenSize_summ">Select size of the virtual screen</string>
     <string name="pref_screenType">Screen Layout</string>
     <string name="pref_screenType_default">Medium</string>
+    <string name="pref_category_headset_title">Headset Setup</string>
+    <string name="pref_lensSpacing_title">Inter-lens distance</string>
+    <string name="pref_lensScreenDist_title">Screen to lens distance</string>
+    <string name="pref_lensVertDist_title">Vertical distance to lens center</string>
+    <string name="pref_previewSize_title">Select size of the Camera preview</string>
+    <string name="pref_bgColor_title">Background Color</string>
+    <string name="pref_bgColor_summary">Color in #RRGGBB or #AARRGGBB format.</string>
+
 </resources>

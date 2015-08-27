@@ -1,11 +1,16 @@
 package se.chai.cardboardremotedesktop;
 
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.preference.PreferenceFragment;
+import android.preference.PreferenceManager;
 import android.support.v7.app.ActionBar;
 import android.support.v7.app.ActionBarActivity;
 import android.view.Menu;
 import android.view.MenuItem;
+
+import com.google.vrtoolkit.cardboard.CardboardDeviceParams;
+import com.google.vrtoolkit.cardboard.CardboardView;
 
 
 public class SettingsActivity extends ActionBarActivity {
@@ -21,6 +26,14 @@ public class SettingsActivity extends ActionBarActivity {
         AdLogic ads = new AdLogic();
         ads.loadAds(this);
 
+        CardboardView view = new CardboardView(this);
+        CardboardDeviceParams params = view.getCardboardDeviceParams();
+        SharedPreferences.Editor editor = PreferenceManager.getDefaultSharedPreferences(this).edit();//
+        editor.putInt("pref_lensSpacing", (int) (params.getInterLensDistance() * 1000));
+        editor.putInt("pref_lensScreenDist", (int) (params.getScreenToLensDistance() * 1000));
+        editor.putInt("pref_lensVertDist", (int) (params.getVerticalDistanceToLensCenter() * 1000));
+        editor.commit();
+
         if (savedInstanceState == null) {
             getFragmentManager().beginTransaction()
                     .add(R.id.settingscontainer, new SettingsFragment())
@@ -29,6 +42,20 @@ public class SettingsActivity extends ActionBarActivity {
         }
     }
 
+    @Override
+    public void onPause() {
+        super.onPause();
+        CardboardView view = new CardboardView(this);
+        CardboardDeviceParams params = view.getCardboardDeviceParams();
+        float lensSpacing = PreferenceManager.getDefaultSharedPreferences(this).getInt("pref_lensSpacing",(int) (params.getInterLensDistance() * 1000)) / 1000f;
+        float lensScreenDist = PreferenceManager.getDefaultSharedPreferences(this).getInt("pref_lensScreenDist",(int) (params.getScreenToLensDistance() * 1000)) / 1000f;
+        float lensVertDist = PreferenceManager.getDefaultSharedPreferences(this).getInt("pref_lensVertDist",(int) (params.getVerticalDistanceToLensCenter() * 1000)) / 1000f;
+        params = new CardboardDeviceParams();
+        params.setInterLensDistance(lensSpacing);
+        params.setScreenToLensDistance(lensScreenDist);
+        params.setVerticalDistanceToLensCenter(lensVertDist);
+        view.updateCardboardDeviceParams(params);
+    }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {

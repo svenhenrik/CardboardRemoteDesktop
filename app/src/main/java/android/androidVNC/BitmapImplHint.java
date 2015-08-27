@@ -1,7 +1,7 @@
 package android.androidVNC;
 
-class BitmapImplHint {
-	static final long AUTO = 0L;
-	static final long FULL = 1L;
-	static final long TILE = 2L;
+public class BitmapImplHint {
+	public static final long AUTO = 0L;
+	public static final long FULL = 1L;
+	public static final long TILE = 2L;
 }

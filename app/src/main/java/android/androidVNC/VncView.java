@@ -35,6 +35,7 @@ import java.util.zip.Inflater;
 import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
@@ -140,8 +141,10 @@ public class VncView extends ImageView {
 		scrollRunnable = new MouseScrollRunnable();
 		handleRREPaint = new Paint();
 		handleRREPaint.setStyle(Style.FILL);
-
-        setLayoutParams( new ViewGroup.LayoutParams( 1920, 1080) );
+//
+//         setLayoutParams(new ViewGroup.LayoutParams(1024, 768));
+//        setDrawingCacheEnabled(true);
+		//setScaleType(ScaleType.FIT_CENTER);
 	}
 
 
@@ -173,7 +176,7 @@ public class VncView extends ImageView {
 				try {
 					connectAndAuthenticate(connection.getUserName(),connection.getPassword());
 //                    doProtocolInitialisation(display.getWidth(), display.getHeight());
-                    doProtocolInitialisation(1920,1080);
+                    doProtocolInitialisation(1,1);
 //					handler.post(new Runnable() {
 //                        public void run() {
 //                            pd.setMessage("Downloading first frame.\nPlease wait...");
@@ -665,7 +668,10 @@ public class VncView extends ImageView {
 					continue;
 				offset = bitmapData.offset(x, dy);
 				for (i = 0; i < w; i++) {
-					pixels[offset + i] = colorPalette[0xFF & handleRawRectBuffer[i]];
+//					if (i > 2000)
+//						pixels[offset+i] = 0xff;
+//					else
+						pixels[offset + i] = colorPalette[0xFF & handleRawRectBuffer[i]];
 				}
 			}
 		} else {
@@ -1660,9 +1666,12 @@ public class VncView extends ImageView {
             surface.unlockCanvasAndPost(surfaceCanvas);
         } else
             super.onDraw(canvas);
+
+//        Bitmap b = getDrawingCache();
     }
 
     public void setSurface(Surface texture) {
-        surface = texture;
+
+		surface = texture;
     }
 }

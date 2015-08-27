@@ -16,54 +16,75 @@
 
 package se.chai.cardboardremotedesktop;
 
-import android.androidVNC.COLORMODEL;
-import android.androidVNC.ConnectionBean;
-import android.androidVNC.VncDatabase;
-import android.androidVNC.VncView;
-import android.content.Context;
-import android.content.Intent;
-import android.content.SharedPreferences;
-import android.graphics.SurfaceTexture;
-import android.hardware.Camera;
-import android.media.MediaPlayer;
-import android.opengl.GLES11Ext;
-import android.opengl.GLES20;
-import android.opengl.Matrix;
-import android.os.Bundle;
-import android.os.Vibrator;
-import android.preference.PreferenceManager;
-import android.util.FloatMath;
-import android.util.Log;
-import android.view.KeyEvent;
-import android.view.MotionEvent;
-import android.view.Surface;
-
 import com.google.vrtoolkit.cardboard.CardboardActivity;
 import com.google.vrtoolkit.cardboard.CardboardView;
 import com.google.vrtoolkit.cardboard.Eye;
 import com.google.vrtoolkit.cardboard.HeadTransform;
 import com.google.vrtoolkit.cardboard.Viewport;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.nio.FloatBuffer;
+import android.content.Context;
+import android.content.Intent;
+import android.content.SharedPreferences;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Color;
+import android.media.AudioManager;
+import android.opengl.GLES20;
+import android.opengl.Matrix;
+import android.os.Bundle;
+import android.os.SystemClock;
+import android.os.Vibrator;
+import android.preference.PreferenceManager;
+import android.util.DisplayMetrics;
+import android.util.Log;
+import android.view.InputDevice;
+import android.view.KeyEvent;
+import android.view.MotionEvent;
+
+import java.util.ArrayList;
 
 import javax.microedition.khronos.egl.EGLConfig;
 
 import se.chai.cardboardtools.CardboardOverlayView;
-import se.chai.cardboardtools.Vec4f;
-import se.chai.cardboardtools.WorldLayoutData;
+import se.chai.vr.ButtonThing;
+import se.chai.vr.CameraScreen;
+import se.chai.vr.Cursor;
+import se.chai.vr.Engine;
+import se.chai.vr.EnvironmentThing;
+import se.chai.vr.FPSCounter;
+import se.chai.vr.OnTriggerListener;
+import se.chai.vr.OnVideoSizeChangeListener;
+import se.chai.vr.StateButton;
+import se.chai.vr.VNCScreen;
 
 /**
  * A Cardboard sample application.
  */
-public class DisplayActivity extends CardboardActivity implements CardboardView.StereoRenderer, SurfaceTexture.OnFrameAvailableListener, VncView.IConnectionInfo {
+public class DisplayActivity extends CardboardActivity implements CardboardView.StereoRenderer,
+        OnTriggerListener, OnVideoSizeChangeListener {
+
+    private static final int UI_POS_DOWN = 0;
+    private static final int UI_POS_LEFT = 1;
+    private static final int UI_POS_RIGHT = 2;
+    private static final int UI_POS_UP = 3;
+
+    private AudioManager audio;
+
+    private Engine engine;
+    private VNCScreen screen;
+    private CameraScreen cameraPreview;
+
+    private ButtonThing magnifyButton;
+    private StateButton screenModeButton;
+    private ButtonThing exitButton;
+
+    // special
+    private ButtonThing uiBackGround;
+    private Cursor aimPoint;
+
+    private EnvironmentThing bgEnv;
+
+    ArrayList<ButtonThing> buttonList;
 
     private static final String TAG = "MainActivity";
 
@@ -76,150 +97,51 @@ public class DisplayActivity extends CardboardActivity implements CardboardView.
     private static final float YAW_LIMIT = 0.12f;
     private static final float PITCH_LIMIT = 0.12f;
 
-    private static final int COORDS_PER_VERTEX = 3;
-
     private static final WorldLayoutData DATA = new WorldLayoutData();
 
-    // We keep the light always position just above the user.
-    private static final float[] LIGHT_POS_IN_WORLD_SPACE = new float[]{0.0f, 2.0f, 0.0f, 1.0f};
-
-    private final float[] mLightPosInEyeSpace = new float[4];
-
-    private FloatBuffer mFloorVertices;
-    private FloatBuffer mFloorColors;
-    private FloatBuffer mFloorNormals;
-
-    private FloatBuffer mScreenVertices;
-    private FloatBuffer mScreenColors;
-    private FloatBuffer mScreenTexcoords;
-    private FloatBuffer mScreenTexcoordsLeft;
-    private FloatBuffer mScreenTexcoordsRight;
-    private FloatBuffer mScreenNormals;
-
-    private int mScreenProgram;
-    private int mEnvProgram;
-
-    private int mScreenPositionA;
-    private int mScreenNormalA;
-    private int mScreenColorA;
-    private int mScreenTextureA;
-    private int mScreenTextureU;
-    private int mScreenTextureTransformU;
-    private int mScreenModelA;
-    private int mScreenModelViewA;
-    private int mScreenModelViewProjectionA;
-    //private int mScreenModelViewProjectionA;
-    private int mScreenLightPosA;
-
-    private int mFloorPositionParam;
-    private int mFloorNormalParam;
-    private int mFloorColorParam;
-    private int mFloorTextureParam;
-    private int mFloorTextureUniformParam;
-    private int mFloorModelParam;
-    private int mFloorModelViewParam;
-    private int mFloorModelViewProjectionParam;
-    private int mFloorLightPosParam;
-
-    private float[] mModelScreen;
-    private float[] mModelCamScreen;
+       //private float[] mModelScreen;
     private float[] mCamera;
     private float[] mView;
     private float[] mHeadView;
-    private float[] mForwardVector;
     private float[] mModelViewProjection;
     private float[] mModelView;
-    private float[] mModelFloor;
+    private float[] mOffsetView;
 
     private int mScore = 0;
     private float mObjectDistance = 12f;
-    private float mFloorDepth = 20f;
 
     private Vibrator mVibrator;
     private CardboardOverlayView mOverlayView;
 
-    private int mScreenTexture;
-    private boolean mVideoFrameAvailable = false;
-    private SurfaceTexture mVideoSurfaceTexture;
-    private Surface mVideoSurface;
-    private float[] mVideoTextureTransform;
-    private MediaPlayer player;
-    private float mScreenDistance = 6.0f;
-    private float mScreenSize = 3f;
+
+    private float mScreenDistance = 11.95f;
+    private float mScreenSize = 8.5f;
+    private float mScreenHeight = 0;//.25f;
     private float mScreenTexYoff = 0.0f;
 
-    private String mDataSource;
-    private String mProjection;
-    private String mDimensions;
-    private String mScreenType;
-    private String mVideo3DLayout;
+    private long fuseStart = 0;
+    private ButtonThing fuseButton;
+    private int bgColor;
+
+    float r, g, b, a;
+    private float prefFuseLength;
+    private AdLogic interstitialAdLogic;
+
+    private Boolean prefShowEnv;
+    private String prefShowEnvString;
+
+    private float mScreenSizeMultiplier;
+    private float mRatio;
     private String mExtraName;
     private String mExtraHost;
     private String mExtraUsername;
     private String mExtraPassword;
     private String mExtraColorMode;
-    private Boolean mExtraViewerMode;
+    private boolean mExtraViewerMode;
 
-    private int mCameraTexture;
-    private boolean mPreviewFrameAvailable = false;
-    private SurfaceTexture mCameraSurfaceTexture;
-    private Surface mCameraSurface;
-    private float[] mCameraTextureTransform;
-    private Camera mHWCamera;
-
-    private VncView vncView;
-    private VncDatabase db;
-    private ConnectionBean connection;
-    private boolean mVncReady = false;
-    private int mX = 0, mY = 0;
-    private float mScreenYaw = 0;
-    private float mYaw = 0;
-    private float mCamScreenSize = 5;
-    private boolean mPrefCamera = false;
-
-    /**
-     * Checks if we've had an error inside of OpenGL ES, and if so what that error is.
-     *
-     * @param label Label to report in case of error.
-     */
-    private static void checkGLError(String label) {
-        int error;
-        while ((error = GLES20.glGetError()) != GLES20.GL_NO_ERROR) {
-            Log.e(TAG, label + ": glError " + error);
-            throw new RuntimeException(label + ": glError " + error);
-        }
-    }
-
-    /**
-     * Converts a raw text file, saved as a resource, into an OpenGL ES shader.
-     *
-     * @param type  The type of shader we will be creating.
-     * @param resId The resource ID of the raw text file about to be turned into a shader.
-     * @return The shader object handler.
-     */
-    private int loadGLShader(int type, int resId) {
-        String code = readRawTextFile(resId);
-        int shader = GLES20.glCreateShader(type);
-        GLES20.glShaderSource(shader, code);
-        GLES20.glCompileShader(shader);
-
-        // Get the compilation status.
-        final int[] compileStatus = new int[1];
-        GLES20.glGetShaderiv(shader, GLES20.GL_COMPILE_STATUS, compileStatus, 0);
-
-        // If the compilation failed, delete the shader.
-        if (compileStatus[0] == 0) {
-            Log.e(TAG, "Error compiling shader: " + GLES20.glGetShaderInfoLog(shader));
-            GLES20.glDeleteShader(shader);
-            shader = 0;
-        }
-
-        if (shader == 0) {
-            throw new RuntimeException("Error creating shader.");
-        }
-
-        return shader;
-    }
+    private boolean mCurvedScreen;
+    private boolean mMagnify;
+    private DisplayMetrics mMetrics;
 
     /**
      * Sets the view to our CardboardView and initializes the transformation matrices we will use
@@ -229,32 +151,10 @@ public class DisplayActivity extends CardboardActivity implements CardboardView.
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        setContentView(R.layout.common_ui);
-        CardboardView cardboardView = (CardboardView) findViewById(R.id.cardboard_view);
-        cardboardView.setRenderer(this);
-        setCardboardView(cardboardView);
-
-        mModelScreen = new float[16];
-        mModelCamScreen = new float[16];
-        mCamera = new float[16];
-        mView = new float[16];
-        mModelViewProjection = new float[16];
-        mModelView = new float[16];
-        mModelFloor = new float[16];
-        mHeadView = new float[16];
-        mForwardVector = new float[4];
-
-        mVibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
-
-        mOverlayView = (CardboardOverlayView) findViewById(R.id.overlay);
-//        mOverlayView.show3DToast("Pull the magnet when you find an object.");
+        audio = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
 
         Intent intent = getIntent();
-        mDataSource = intent.getStringExtra("datasource");
-        mDimensions = intent.getStringExtra("dimension");
-        mProjection = intent.getStringExtra("projectionType");
-        mScreenType = intent.getStringExtra("screenType");
-        mVideo3DLayout = intent.getStringExtra("videoType");
+        mScreenSizeMultiplier = 1;//intent.getFloatExtra("videoSize", 1);
 
         mExtraName = intent.getStringExtra("name");
         mExtraHost = intent.getStringExtra("host");
@@ -263,13 +163,94 @@ public class DisplayActivity extends CardboardActivity implements CardboardView.
         mExtraColorMode = intent.getStringExtra("colormode");
         mExtraViewerMode = intent.getBooleanExtra("viewonly", false);
 
-        SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(this);
-        mScreenSize = Float.parseFloat(sharedPref.getString("pref_screenSize", "3"));
-//        String prefScreenSize = sharedPref.getString("pref_screenSize", "Medium");
-//        if (prefScreenSize.equals("Big")) mScreenSize = 4;
-//        else if (prefScreenSize.equals("Small")) mScreenSize = 2;
-//        else mScreenSize = 3;
+        prefFuseLength = PreferenceManager.getDefaultSharedPreferences(this).getInt("pref_fuseTimeout", 1500);
+        prefShowEnvString = PreferenceManager.getDefaultSharedPreferences(this).getString("pref_showEnv", "Home Theater");
+        prefShowEnv = false;//!prefShowEnvString.equals("None");
 
+        try {
+            String c = PreferenceManager.getDefaultSharedPreferences(this).getString("pref_bgColor", "black");
+            bgColor = Color.parseColor(c);
+        } catch (IllegalArgumentException e) {
+            bgColor = Color.parseColor("black");
+        }
+        mScreenDistance = 1;//11.95f;
+        mScreenSize = 1f;
+
+        mCurvedScreen = PreferenceManager.getDefaultSharedPreferences(this).getBoolean("pref_curvedScreen", true);
+        mMagnify = PreferenceManager.getDefaultSharedPreferences(this).getBoolean("pref_magnify", true);
+
+        //bgColor = Color.parseColor("#ffcccccc");
+        r = Color.red(bgColor)/255f;
+        g = Color.green(bgColor)/255f;
+        b = Color.blue(bgColor)/255f;
+        a = Color.alpha(bgColor)/255f;
+
+        setContentView(R.layout.common_ui);
+        CardboardView cardboardView = (CardboardView) findViewById(R.id.cardboard_view);
+
+
+//        CardboardDeviceParams params = cardboardView.getCardboardDeviceParams();
+//        float lensSpacing = PreferenceManager.getDefaultSharedPreferences(this).getInt("lensSpacing",(int) (params.getInterLensDistance() * 1000)) / 1000f;
+//        float lensScreenDist = PreferenceManager.getDefaultSharedPreferences(this).getInt("lensScreenDist",(int) (params.getScreenToLensDistance() * 1000)) / 1000f;
+//        float lensVertDist = PreferenceManager.getDefaultSharedPreferences(this).getInt("lensVertDist",(int) (params.getVerticalDistanceToLensCenter() * 1000)) / 1000f;
+//        params = new CardboardDeviceParams();
+//        params.setInterLensDistance(lensSpacing);
+//        params.setScreenToLensDistance(lensScreenDist);
+//        params.setVerticalDistanceToLensCenter(lensVertDist);
+//        cardboardView.updateCardboardDeviceParams(params);
+
+        cardboardView.setRestoreGLStateEnabled(false);
+        cardboardView.setRenderer(this);
+        setCardboardView(cardboardView);
+
+        engine = new Engine(getResources());
+//        engine.debug = true;
+
+        aimPoint = new Cursor(engine);
+        if (PreferenceManager.getDefaultSharedPreferences(this).getBoolean("pref_UseFuse", true))
+            fuseStart = -1;
+
+        if (prefShowEnv) {
+            bgEnv = new EnvironmentThing(engine);
+        }
+
+
+        buttonList = new ArrayList<>();
+        uiBackGround = new ButtonThing(engine);
+        uiBackGround.setName("bg");
+
+        magnifyButton = new ButtonThing(engine);
+        magnifyButton.setOnTriggerListener(this);
+        screenModeButton = new StateButton(engine);
+        screenModeButton.setOnTriggerListener(this);
+        exitButton = new ButtonThing(engine);
+        exitButton.setName("stop");
+        exitButton.setOnTriggerListener(this);
+
+        buttonList.add(exitButton);
+        buttonList.add(magnifyButton);
+        buttonList.add(screenModeButton);
+
+        mCamera = new float[16];
+        mView = new float[16];
+        mModelViewProjection = new float[16];
+        mModelView = new float[16];
+        mHeadView = new float[16];
+
+        mOffsetView = new float[16];
+        Matrix.setIdentityM(mOffsetView, 0);
+
+        mVibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+
+        mOverlayView = (CardboardOverlayView) findViewById(R.id.overlay);
+
+        screen = new VNCScreen(engine, this);
+        cameraPreview = new CameraScreen(engine, this);
+
+        Intent returnIntent = new Intent();
+        setResult(RESULT_OK, returnIntent);
+
+        mMetrics = getResources().getDisplayMetrics();
     }
 
     @Override
@@ -284,7 +265,7 @@ public class DisplayActivity extends CardboardActivity implements CardboardView.
 
     /**
      * Creates the buffers we use to store information about the 3D world.
-     * <p/>
+     *
      * OpenGL doesn't use Java arrays, but rather needs data in a format it can understand.
      * Hence we use ByteBuffers.
      *
@@ -293,281 +274,152 @@ public class DisplayActivity extends CardboardActivity implements CardboardView.
     @Override
     public void onSurfaceCreated(EGLConfig config) {
         Log.i(TAG, "onSurfaceCreated");
-        GLES20.glClearColor(0.1f, 0.1f, 0.1f, 0.5f); // Dark background so text shows up well.
-        int sub = 15;
 
-        float[] u, tm, tl, tr;
-        if (mScreenType.equals("Flat")) {
-            u = WorldLayoutData.FACE_COORDS;
-            tm = WorldLayoutData.FACE_TEXCOORDS_MONO;
-            tl = WorldLayoutData.FACE_TEXCOORDS_LEFT;
-            tr = WorldLayoutData.FACE_TEXCOORDS_RIGHT;
-        } else {
-            if (mProjection.equals("Square")) {
-                tm = WorldLayoutData.GenerateUnitSphereTexCoords(sub, sub, Eye.Type.MONOCULAR, .0f);
-                tl = WorldLayoutData.GenerateUnitSphereTexCoords(sub, sub, Eye.Type.LEFT, .0f);
-                tr = WorldLayoutData.GenerateUnitSphereTexCoords(sub, sub, Eye.Type.RIGHT, .0f);
-            } else {
-                tm = WorldLayoutData.GenerateUnitSphereTexCoords2(sub, sub, Eye.Type.MONOCULAR);
-                tl = WorldLayoutData.GenerateUnitSphereTexCoords2(sub, sub, Eye.Type.LEFT);
-                tr = WorldLayoutData.GenerateUnitSphereTexCoords2(sub, sub, Eye.Type.RIGHT);
-            }
+        int sub = 17;
 
-            if (mScreenType.equals("Sphere")) {
-                u = WorldLayoutData.GenerateUnitSphere(sub, sub, false);
-            } else {
-                u = WorldLayoutData.GenerateUnitSphere(sub, sub, true);
-            }
+        if (PreferenceManager.getDefaultSharedPreferences(this).getBoolean("pref_DisableDist", false)) {
+            getCardboardView().setDistortionCorrectionEnabled(false);
         }
 
-        ByteBuffer bbVertices = ByteBuffer.allocateDirect(u.length * 4);
-        bbVertices.order(ByteOrder.nativeOrder());
-        mScreenVertices = bbVertices.asFloatBuffer();
-        mScreenVertices.put(u);
-        mScreenVertices.position(0);
+        screen.setOnVideoSizeChangeListener(this);
+        screen.setCurveEnabled(mCurvedScreen);
+        screen.setMagnifyEnabled(mMagnify);
+        screen.setViewerMode(mExtraViewerMode);
+        //mScreenSize = PreferenceManager.getDefaultSharedPreferences(this).getInt("pref_screenSize2", 100) / 100.0f;
+        screen.initGeometry(ratioToDegrees(16f / 9));
+        screen.setupPosition(mScreenSize, mScreenHeight, -mScreenDistance);
+//        runOnUiThread(new Runnable() {
+//            @Override
+//            public void run() {
+                if (!screen.initVnc(mExtraHost, mExtraUsername, mExtraPassword, mExtraColorMode)) {
+                    finish();
+                }
+//            }
+//        });
+        screen.setupShaders();
 
-        ByteBuffer bbTexcoords = ByteBuffer.allocateDirect(tm.length * 4);
-        bbTexcoords.order(ByteOrder.nativeOrder());
-        mScreenTexcoords = bbTexcoords.asFloatBuffer();
-        mScreenTexcoords.put(tm);
-        mScreenTexcoords.position(0);
+        cameraPreview.init();
+        cameraPreview.setupShaders();
+        float cameraSize = PreferenceManager.getDefaultSharedPreferences(this).getInt("pref_previewSize", 100) /100.0f;
 
-        ByteBuffer bbTexcoordsLeft = ByteBuffer.allocateDirect(tl.length * 4);
-        bbTexcoordsLeft.order(ByteOrder.nativeOrder());
-        mScreenTexcoordsLeft = bbTexcoordsLeft.asFloatBuffer();
-        mScreenTexcoordsLeft.put(tl);
-        mScreenTexcoordsLeft.position(0);
+        Matrix.setIdentityM(cameraPreview.model, 0);
+        Matrix.translateM(cameraPreview.model, 0, 0, 0, -mScreenDistance * 2);
+        Matrix.scaleM(cameraPreview.model, 0, cameraSize*cameraPreview.getRatio(), cameraSize, 1);
 
-        ByteBuffer bbTexcoordsRight = ByteBuffer.allocateDirect(tr.length * 4);
-        bbTexcoordsRight.order(ByteOrder.nativeOrder());
-        mScreenTexcoordsRight = bbTexcoordsRight.asFloatBuffer();
-        mScreenTexcoordsRight.put(tr);
-        mScreenTexcoordsRight.position(0);
+        final BitmapFactory.Options options = new BitmapFactory.Options();
+        options.inScaled = false;   // No pre-scaling
 
-        // make a floor
-        ByteBuffer bbFloorVertices = ByteBuffer.allocateDirect(WorldLayoutData.FLOOR_COORDS.length * 4);
-        bbFloorVertices.order(ByteOrder.nativeOrder());
-        mFloorVertices = bbFloorVertices.asFloatBuffer();
-        mFloorVertices.put(WorldLayoutData.FLOOR_COORDS);
-        mFloorVertices.position(0);
+        final Bitmap aimBitmap = BitmapFactory.decodeResource(getResources(), R.drawable.whitecircle, options);
+        aimPoint.init();
+        aimPoint.addTexture(aimBitmap);
+        aimPoint.setupShaders();
+        Matrix.setIdentityM(aimPoint.model, 0);
+        float aimSize = mScreenSize * .05f;
+        aimPoint.scale(aimSize, aimSize, 1);
+        aimPoint.translate(0, 0, -1.5f);
+        aimPoint.setAlpha(0);
 
-        ByteBuffer bbFloorNormals = ByteBuffer.allocateDirect(WorldLayoutData.FLOOR_NORMALS.length * 4);
-        bbFloorNormals.order(ByteOrder.nativeOrder());
-        mFloorNormals = bbFloorNormals.asFloatBuffer();
-        mFloorNormals.put(WorldLayoutData.FLOOR_NORMALS);
-        mFloorNormals.position(0);
+        if (prefShowEnv) {
+//        final Bitmap envBitmap = BitmapFactory.decodeResource(getResources(), R.drawable.home_texture, options);
+//            bgEnv.init();
+//        bgEnv.addTexture(envBitmap);
+            bgEnv.setupShaders();
+        }
 
-        ByteBuffer bbFloorColors = ByteBuffer.allocateDirect(WorldLayoutData.FLOOR_COLORS.length * 4);
-        bbFloorColors.order(ByteOrder.nativeOrder());
-        mFloorColors = bbFloorColors.asFloatBuffer();
-        mFloorColors.put(WorldLayoutData.FLOOR_COLORS);
-        mFloorColors.position(0);
+        final Bitmap homeBitmap = BitmapFactory.decodeResource(getResources(), R.drawable.home, options);
+        exitButton.init();
+        exitButton.addTexture(homeBitmap);
+        exitButton.setupShaders();
 
-        int[] textureids = new int[2];
-        GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
-        GLES20.glGenTextures(1, textureids, 0);
-        mScreenTexture = textureids[0];
-        mCameraTexture = textureids[1];
-        //GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, mScreenTexture);
-        //GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR);
-        //GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR);
+        magnifyButton.init();
+        final Bitmap magnifyBitmap = BitmapFactory.decodeResource(getResources(), R.drawable.zoom_in, options);
+        magnifyButton.addTexture(magnifyBitmap);
+        magnifyButton.setupShaders();
 
+        screenModeButton.init();
+        final Bitmap curveOnBitmap = BitmapFactory.decodeResource(getResources(), R.drawable.curve_on, options);
+        final Bitmap curveOffBitmap = BitmapFactory.decodeResource(getResources(), R.drawable.curve_off, options);
+        screenModeButton.addTexture(curveOffBitmap);
+        screenModeButton.addTexture(curveOnBitmap);
+        screenModeButton.setupShaders();
+        if (mCurvedScreen) {
+            screenModeButton.setInitState(0);
+        } else {
+            screenModeButton.setInitState(1);
+        }
+        //Matrix.rotateM(volumeButton.model, 0, 90, 0, 0, 1);
 
-//        player = new MediaPlayer();
-//        mVideoSurface = new Surface(mVideoSurfaceTexture);
-//        try {
-//            player.setDataSource(mDataSource);
-//            player.setSurface(mVideoSurface);
-//            player.setLooping(true);
-//            player.prepare();//async!
-//            player.start();
-//        } catch (IOException e) {
-//            throw new RuntimeException("Could not open input video!");
+        setupUI(1.5f);
+//        for (ButtonThing button  : buttonList) {
+//            button.hide();
 //        }
 
-        vncView = (VncView) findViewById(R.id.vncview);
+        GLES20.glDisable(GLES20.GL_DEPTH_TEST);
+//        GLES20.glDepthMask(false);
+        //GLES20.glDisable(GLES20.GL_CULL_FACE);
 
-        connection = new ConnectionBean();
+        GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA);
+        GLES20.glEnable(GLES20.GL_BLEND);
 
-        URL url;
+        screen.pitchLimit = (float) Math.atan2(mScreenSize, mScreenDistance);
+        screen.yawLimit = (float) Math.atan2(mScreenSize, mScreenDistance);
 
-        try {
-            url = new URL("http://" + mExtraHost);
+        Engine.checkGLError("onSurfaceCreated");
 
-            connection.setAddress(url.getHost());
-            int port = url.getPort();
-            connection.setPort(port == -1 ? 5900 : port);
-            connection.setUserName(mExtraUsername);
-            connection.setPassword(mExtraPassword);
-            String colorModel = COLORMODEL.C256.nameString();
-            switch (mExtraColorMode) {
-                case "24bit":
-                    colorModel = COLORMODEL.C24bit.nameString();
-                    break;
-                case "256":
-                    colorModel = COLORMODEL.C256.nameString();
-                    break;
-                case "64":
-                    colorModel = COLORMODEL.C64.nameString();
-                    break;
-            }
-            connection.setColorModel(colorModel);
-
-        } catch (MalformedURLException e) {
-            e.printStackTrace();
-        }
-
-        vncView.initializeVncCanvas(connection, new Runnable() {
-            public void run() {
-                setModes();
-            }
-        });
-        vncView.setConnectionInfoCallback(this);
-
-        mCameraSurfaceTexture = new SurfaceTexture(mCameraTexture);
-        mCameraSurfaceTexture.setOnFrameAvailableListener(this);
-        mCameraTextureTransform = new float[16];
-
-        SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(this);
-        mPrefCamera = sharedPref.getBoolean("pref_camera", false);
-
-        if (mPrefCamera) {
-            mHWCamera = Camera.open();
-
-            try {
-                mHWCamera.setPreviewTexture(mCameraSurfaceTexture);
-            } catch (IOException t) {
-            }
-
-            mHWCamera.startPreview();
-        } else {
-            mHWCamera = null;
-        }
-
-        int vertexShader = loadGLShader(GLES20.GL_VERTEX_SHADER, R.raw.vertex);
-        int vertexLightShader = loadGLShader(GLES20.GL_VERTEX_SHADER, R.raw.light_vertex);
-        int gridShader = loadGLShader(GLES20.GL_FRAGMENT_SHADER, R.raw.grid_fragment);
-        int textureShader = loadGLShader(GLES20.GL_FRAGMENT_SHADER, R.raw.texture_fragment);
-
-        mScreenProgram = GLES20.glCreateProgram();
-        GLES20.glAttachShader(mScreenProgram, vertexShader);
-        GLES20.glAttachShader(mScreenProgram, textureShader);
-        GLES20.glLinkProgram(mScreenProgram);
-        GLES20.glUseProgram(mScreenProgram);
-
-        checkGLError("Screen program");
-
-        mScreenPositionA = GLES20.glGetAttribLocation(mScreenProgram, "a_Position");
-        //mScreenNormalA = GLES20.glGetAttribLocation(mScreenProgram, "a_Normal");
-        //mScreenColorA = GLES20.glGetAttribLocation(mScreenProgram, "a_Color");
-        mScreenTextureA = GLES20.glGetAttribLocation(mScreenProgram, "a_TexCoordIn");
-        mScreenTextureU = GLES20.glGetUniformLocation(mScreenProgram, "u_Texture");
-        mScreenTextureTransformU = GLES20.glGetUniformLocation(mScreenProgram, "u_TexTransform");
-
-        //mScreenModelA = GLES20.glGetUniformLocation(mScreenProgram, "u_Model");
-        //mScreenModelViewA = GLES20.glGetUniformLocation(mScreenProgram, "u_MVMatrix");
-        mScreenModelViewProjectionA = GLES20.glGetUniformLocation(mScreenProgram, "u_MVP");
-        //mScreenLightPosA = GLES20.glGetUniformLocation(mScreenProgram, "u_LightPos");
-
-        GLES20.glEnableVertexAttribArray(mScreenPositionA);
-        //GLES20.glEnableVertexAttribArray(mScreenNormalA);
-        //GLES20.glEnableVertexAttribArray(mScreenColorA);
-        GLES20.glEnableVertexAttribArray(mScreenTextureA);
-
-        checkGLError("Screen program params");
-
-        mEnvProgram = GLES20.glCreateProgram();
-        GLES20.glAttachShader(mEnvProgram, vertexLightShader);
-        GLES20.glAttachShader(mEnvProgram, gridShader);
-        GLES20.glLinkProgram(mEnvProgram);
-        GLES20.glUseProgram(mEnvProgram);
-
-        checkGLError("Floor program");
-
-        mFloorModelParam = GLES20.glGetUniformLocation(mEnvProgram, "u_Model");
-        mFloorModelViewParam = GLES20.glGetUniformLocation(mEnvProgram, "u_MVMatrix");
-        mFloorModelViewProjectionParam = GLES20.glGetUniformLocation(mEnvProgram, "u_MVP");
-        mFloorLightPosParam = GLES20.glGetUniformLocation(mEnvProgram, "u_LightPos");
-
-        mFloorPositionParam = GLES20.glGetAttribLocation(mEnvProgram, "a_Position");
-        mFloorNormalParam = GLES20.glGetAttribLocation(mEnvProgram, "a_Normal");
-        mFloorColorParam = GLES20.glGetAttribLocation(mEnvProgram, "a_Color");
-        mFloorTextureParam = GLES20.glGetAttribLocation(mScreenProgram, "a_TexCoordIn");
-        mFloorTextureUniformParam = GLES20.glGetUniformLocation(mScreenProgram, "u_Texture");
-
-        GLES20.glEnableVertexAttribArray(mFloorPositionParam);
-        GLES20.glEnableVertexAttribArray(mFloorNormalParam);
-        GLES20.glEnableVertexAttribArray(mFloorColorParam);
-        GLES20.glEnableVertexAttribArray(mFloorTextureParam);
-
-        checkGLError("Floor program params");
-
-        GLES20.glEnable(GLES20.GL_DEPTH_TEST);
-
-        // Object first appears directly in front of user.
-        Matrix.setIdentityM(mModelCamScreen, 0);
-        if (mScreenType.equals("Flat") && mHWCamera != null) {
-//            float ratio = (float)player.getVideoWidth()/(float)player.getVideoHeight();
-            Camera.Size previewSize = mHWCamera.getParameters().getPreviewSize();
-            float ratio = (float) previewSize.width / (float) previewSize.height;
-
-            Matrix.scaleM(mModelCamScreen, 0, mScreenSize * ratio, mScreenSize, 1.0f);
-            Matrix.translateM(mModelCamScreen, 0, 0, 0, -mScreenDistance);
-        }
-        //Matrix.scaleM(mModelCamScreen, 0, 5.0f, 5.0f, 1.0f);
-
-        Matrix.setIdentityM(mModelFloor, 0);
-        Matrix.translateM(mModelFloor, 0, 0, -mFloorDepth, 0); // Floor appears below user.
-
-        checkGLError("onSurfaceCreated");
     }
 
-    void setModes() {
-        mVideoSurfaceTexture = new SurfaceTexture(mScreenTexture);
-        mVideoSurfaceTexture.setOnFrameAvailableListener(this);
-        mVideoSurfaceTexture.setDefaultBufferSize(vncView.getImageWidth(), vncView.getImageHeight());
-        //mVideoSurfaceTexture.setDefaultBufferSize(1920,1080);
-        System.out.println("Cardboard VNC: " + vncView.getImageWidth() + ", " + vncView.getImageHeight());
-
-        mVideoSurface = new Surface(mVideoSurfaceTexture);
-        mVideoTextureTransform = new float[16];
-        mVideoSurfaceTexture.getTransformMatrix(mVideoTextureTransform);
-
-        Matrix.setIdentityM(mModelScreen, 0);
-        if (mScreenType.equals("Flat")) {
-            //ratio = 1920f/1080f;//(float)player.getVideoWidth()/(float)player.getVideoHeight();
-            float ratio = (float) vncView.getImageWidth() / (float) vncView.getImageHeight();
-
-            Matrix.rotateM(mModelScreen, 0, (float) Math.toDegrees(mScreenYaw), 0, 1, 0);
-            Matrix.scaleM(mModelScreen, 0, mScreenSize * ratio, mScreenSize, 1.0f);
-            Matrix.translateM(mModelScreen, 0, 0, 0, -mScreenDistance);
-        }
-
-        vncView.setSurface(mVideoSurface);
-        mVncReady = true;
+    private int ratioToDegrees(float ratio) {
+        return Math.min((int) Math.toDegrees(ratio * Math.PI / 3), 360);
     }
 
-    /**
-     * Converts a raw text file into a string.
-     *
-     * @param resId The resource ID of the raw text file about to be turned into a shader.
-     * @return The context of the text file, or null in case of error.
-     */
-    private String readRawTextFile(int resId) {
-        InputStream inputStream = getResources().openRawResource(resId);
-        try {
-            BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
-            StringBuilder sb = new StringBuilder();
-            String line;
-            while ((line = reader.readLine()) != null) {
-                sb.append(line).append("\n");
-            }
-            reader.close();
-            return sb.toString();
-        } catch (IOException e) {
-            e.printStackTrace();
+    private void setupUI(float ratio) {
+        positionButton(exitButton, ratio, -1, 0, 1, 1, UI_POS_DOWN);
+
+        positionButton(screenModeButton, ratio, 0, 0, 1, 1, UI_POS_DOWN);
+
+        positionButton(magnifyButton, ratio, 1, 0, 1, 1, UI_POS_DOWN);
+    }
+
+
+    private void positionButton(ButtonThing button, float ratio, float x, float y, float xscale, float yscale, int pos) {
+        float UI_DOWN, UI_UP, UI_LEFT, UI_RIGHT,
+                UI_XSTEP, UI_YSTEP, UI_SCALE, UI_ZPOS, UI_XROT,
+                UI_ANGLE_SIZE, UI_DIST;
+
+        UI_SCALE = .1f * mScreenSize;
+        UI_XSTEP = UI_YSTEP = 2 * UI_SCALE + UI_SCALE/2; //0.25
+        UI_DOWN = -(mScreenSize/2) - UI_XSTEP/2;
+        UI_UP = - UI_DOWN - mScreenHeight*2;
+        UI_LEFT = -(mScreenSize * mScreenSizeMultiplier) - UI_XSTEP/2;
+        UI_RIGHT = -UI_LEFT;
+        UI_ZPOS = -mScreenDistance;
+        UI_XROT = 0;//(float) (180 * Math.atan2(-mScreenSize / ratio - UI_YSTEP * 3, -UI_ZPOS)/Math.PI);;
+
+        Matrix.setIdentityM(button.model, 0);
+
+        float xpos = 0, ypos = 0;
+        if (pos == UI_POS_DOWN) {
+            xpos = x * UI_XSTEP;
+            ypos = UI_DOWN - y * UI_YSTEP;
+        } else if (pos == UI_POS_LEFT) {
+            xpos = UI_LEFT - x * UI_XSTEP;
+            ypos = y * UI_YSTEP;
+        } else if (pos == UI_POS_RIGHT) {
+            xpos = UI_RIGHT - x * UI_XSTEP;
+            ypos = y * UI_YSTEP;
+        } else if (pos == UI_POS_UP) {
+            xpos = x * UI_XSTEP;
+            ypos = UI_UP - y * UI_YSTEP;
         }
-        return null;
+        float xsize = UI_SCALE * xscale;
+        float ysize = UI_SCALE * yscale;
+        float xrot =  UI_XROT;//(float) (180 * Math.atan2(-mScreenSize -ypos, -UI_ZPOS)/Math.PI);
+
+        button.yawLimit = 1;//xsize;//(float)Math.atan2(xsize, -UI_ZPOS);
+        button.pitchLimit = 1;//ysize;//(float)Math.atan2(ysize, -UI_ZPOS);
+        button.rotate(UI_XROT, 1, 0, 0);
+        button.translate(xpos, ypos, UI_ZPOS);
+        button.scale(UI_SCALE * xscale, UI_SCALE * yscale, 1);
     }
 
     /**
@@ -576,48 +428,65 @@ public class DisplayActivity extends CardboardActivity implements CardboardView.
      * @param headTransform The head transformation in the new frame.
      */
     @Override
-    public void onNewFrame(HeadTransform headTransform) {
-//        if (!mVncReady)
-//            return;
+    public void onNewFrame(final HeadTransform headTransform) {
+        FPSCounter.logFrame();
 
-
-        // Build the Model part of the ModelView matrix.
-        //Matrix.setIdentityM(mModelScreen, 0);
-        //Matrix.scaleM(mModelScreen, 0, mScreenDistance, mScreenDistance, mScreenDistance);
-        //Matrix.rotateM(mModelScreen, 0, TIME_DELTA, 0.5f, 0.5f, 1.0f);
+        if (prefShowEnv && !bgEnv.isReady()) {
+            if (prefShowEnvString.equals("Home Theater"))
+                bgEnv.init(0);
+            else
+                bgEnv.init(1);
+        }
 
         // Build the camera matrix and apply it to the ModelView.
         Matrix.setLookAtM(mCamera, 0, 0.0f, 0.0f, CAMERA_Z, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f);
+        GLES20.glClearColor(r, g, b, a);
 
         headTransform.getHeadView(mHeadView, 0);
-        headTransform.getForwardVector(mForwardVector, 0);
-        float[] angles = new float[3];
-        headTransform.getEulerAngles(angles, 0);
-        mYaw = angles[1];
 
-        //mScreenYaw = - (float) Math.atan2(mForwardVector[0], -mForwardVector[2]);
+        //screen.isLookingAtObject(mHeadView);
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                if (screen.isLookingAtObject(headTransform)) {
+                    aimPoint.setAlpha(0);
+                } else {
+                    aimPoint.setAlpha(1);
+                }
+            }
+        });
 
-        //
-        float[] pos = intersectsScreen();
-        float[] p0 = {pos[0] * FloatMath.cos(-mScreenYaw) + pos[2] * FloatMath.sin(-mScreenYaw),
-                pos[1],
-                -pos[0] * FloatMath.sin(-mScreenYaw) + pos[2] * FloatMath.cos(-mScreenYaw),
-                pos[3]};
-
-
-        if (!mVncReady || mExtraViewerMode)
-            return;
-
-        float ratio = (float) vncView.getImageWidth() / (float) vncView.getImageHeight();
-
-        mX = (int) ((p0[0] + mScreenSize * ratio) / (mScreenSize * ratio * 2) * vncView.getImageWidth());
-        mY = (int) ((p0[1] * -1 + mScreenSize) / (mScreenSize * 2) * vncView.getImageHeight());
-        if (mX >= 0 && mX < vncView.getImageWidth()) {
-            if (mY >= 0 && mY < vncView.getImageHeight()) {
-                vncView.processPointerEvent(mX, mY, MotionEvent.ACTION_MOVE, 0, false, false);
+        for (ButtonThing button : buttonList) {
+            if (button.isLookingAtObject(mHeadView) && !button.isHidden) {
+//                  aimPoint.setAlpha(.7f);
+                if (fuseStart == -1) {
+                    fuseStart = SystemClock.elapsedRealtime();
+                    fuseButton = button;
+                } else if (fuseButton == button){
+                    checkFuse(SystemClock.elapsedRealtime());
+                }
+            } else if (fuseButton == button){
+                checkFuse(0);
+                fuseStart = -1;
+                fuseButton = null;
             }
         }
-        checkGLError("onReadyToDraw");
+
+        Engine.checkGLError("onReadyToDraw");
+    }
+
+    private void checkFuse(long time) {
+        if (fuseStart != -1) {
+            long d = time - fuseStart;
+            if (fuseButton != null) {
+                aimPoint.setFuse(d / prefFuseLength);
+            }
+            if (d > prefFuseLength) {
+                fuseButton.onTrigger(mHeadView);
+                fuseStart = -1;
+                fuseButton = null;
+            }
+        }
     }
 
     /**
@@ -627,66 +496,49 @@ public class DisplayActivity extends CardboardActivity implements CardboardView.
      */
     @Override
     public void onDrawEye(Eye eye) {
-        if (!mVncReady)
-            return;
-
-
-        //vncView.processPointerEvent(evt, false);
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT | GLES20.GL_DEPTH_BUFFER_BIT);
 
-        checkGLError("mColorParam");
+        Engine.checkGLError("mColorParam");
 
         // Apply the eye transformation to the camera.
         Matrix.multiplyMM(mView, 0, eye.getEyeView(), 0, mCamera, 0);
 
-        // Apply drift compensation matrix
-        Matrix.rotateM(mView, 0, (float) Math.toDegrees(mScreenYaw), 0, 1, 0);
-
-
-        // Set the position of the light
-        Matrix.multiplyMV(mLightPosInEyeSpace, 0, mView, 0, LIGHT_POS_IN_WORLD_SPACE, 0);
-
         // Build the ModelView and ModelViewProjection matrices
         // for calculating screen position and light.
         float[] perspective = eye.getPerspective(Z_NEAR, Z_FAR);
-//        Matrix.multiplyMM(mModelView, 0, mView, 0, mModelScreen, 0);
-        //      Matrix.multiplyMM(mModelView, 0, eye.getEyeView(), 0, mModelScreen, 0);
 
-        Matrix.setIdentityM(mModelCamScreen, 0);
+        GLES20.glEnable(GLES20.GL_DEPTH_TEST);
+        GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA);
+        GLES20.glEnable(GLES20.GL_BLEND);
 
-        float ratio;
+        if (prefShowEnv && bgEnv.isReady()) {
 
-        if (mHWCamera != null) {
-            Camera.Size previewSize = mHWCamera.getParameters().getPreviewSize();
-            ratio = (float) previewSize.width / (float) previewSize.height;
-
-            Matrix.scaleM(mModelCamScreen, 0, mCamScreenSize * ratio, mCamScreenSize, 1.0f);
-            Matrix.translateM(mModelCamScreen, 0, 0, 0, -mScreenDistance * 2);
-
-            mModelView = mModelCamScreen;
-            //Matrix.multiplyMM(mModelView, 0, mView, 0, mModelCamScreen, 0);
+            //Env first
+            Matrix.multiplyMM(mModelView, 0, mView, 0, bgEnv.model, 0);
             Matrix.multiplyMM(mModelViewProjection, 0, perspective, 0, mModelView, 0);
-            drawCameraPreview();
+            bgEnv.draw(eye.getType(), mModelViewProjection);
+
         }
 
-        Matrix.setIdentityM(mModelScreen, 0);
-        if (mScreenType.equals("Flat")) {
-            //ratio = 1920f/1080f;//(float)player.getVideoWidth()/(float)player.getVideoHeight();
-            ratio = (float) vncView.getImageWidth() / (float) vncView.getImageHeight();
+        GLES20.glDisable(GLES20.GL_DEPTH_TEST);
 
-            //Matrix.rotateM(mModelScreen, 0, -(float)Math.toDegrees(mScreenYaw), 0, 1, 0);
-            Matrix.scaleM(mModelScreen, 0, mScreenSize * ratio, mScreenSize, 1.0f);
-            Matrix.translateM(mModelScreen, 0, 0, 0, -mScreenDistance);
-        }
-        Matrix.multiplyMM(mModelView, 0, mView, 0, mModelScreen, 0);
+        Matrix.multiplyMM(mModelViewProjection, 0, perspective, 0, cameraPreview.model, 0);
+        cameraPreview.draw(eye.getType(), mModelViewProjection);
+
+        float[] tmp = new float[16];
+        Matrix.multiplyMM(tmp, 0, mOffsetView, 0, screen.model, 0);
+        Matrix.multiplyMM(mModelView, 0, mView, 0, tmp, 0);
         Matrix.multiplyMM(mModelViewProjection, 0, perspective, 0, mModelView, 0);
-        drawScreen(eye.getType());
+        screen.draw(eye.getType(), mModelViewProjection);
 
-        // Set mModelView for the floor, so we draw floor in the correct location
-        //Matrix.multiplyMM(mModelView, 0, mView, 0, mModelFloor, 0);
-        //Matrix.multiplyMM(mModelViewProjection, 0, perspective, 0,
-//            mModelView, 0);
-        //drawFloor();
+        for (ButtonThing button : buttonList) {
+            Matrix.multiplyMM(mModelView, 0, mView, 0, button.model, 0);
+            Matrix.multiplyMM(mModelViewProjection, 0, perspective, 0, mModelView, 0);
+            button.draw(eye.getType(), mModelViewProjection);
+        }
+
+        Matrix.multiplyMM(mModelViewProjection, 0, perspective, 0, aimPoint.model, 0);
+        aimPoint.draw(Eye.Type.MONOCULAR, mModelViewProjection);
     }
 
     @Override
@@ -694,316 +546,123 @@ public class DisplayActivity extends CardboardActivity implements CardboardView.
     }
 
     /**
-     * Draw the screen.
-     * <p/>
-     * We've set all of our transformation matrices. Now we simply pass them into the shader.
-     */
-
-    // TODO rewrite to use glbindbuffer and offset instead of passing entire array
-    void drawScreen(int type) {
-        GLES20.glUseProgram(mScreenProgram);
-
-        GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, mScreenTexture);
-
-        synchronized (this) {
-            if (mVideoFrameAvailable) {
-                mVideoSurfaceTexture.updateTexImage();
-                mVideoSurfaceTexture.getTransformMatrix(mVideoTextureTransform);
-                mVideoFrameAvailable = false;
-            }
-        }
-
-        //GLES20.glUniform3fv(mScreenLightPosA, 1, mLightPosInEyeSpace, 0);
-
-        GLES20.glUniformMatrix4fv(mScreenTextureTransformU, 1, false, mVideoTextureTransform, 0);
-
-        // Set the Model in the shader, used to calculate lighting
-        //GLES20.glUniformMatrix4fv(mScreenModelA, 1, false, mModelScreen, 0);
-
-        // Set the ModelView in the shader, used to calculate lighting
-        //GLES20.glUniformMatrix4fv(mScreenModelViewA, 1, false, mModelView, 0);
-
-        // Set the position of the screen
-        GLES20.glVertexAttribPointer(mScreenPositionA, COORDS_PER_VERTEX, GLES20.GL_FLOAT,
-                false, 0, mScreenVertices);
-
-        // Set the ModelViewProjection matrix in the shader.
-        GLES20.glUniformMatrix4fv(mScreenModelViewProjectionA, 1, false, mModelViewProjection, 0);
-
-        // Set the normal positions of the screen, again for shading
-        //GLES20.glVertexAttribPointer(mScreenNormalA, 3, GLES20.GL_FLOAT, false, 0, mScreenNormals);
-        //GLES20.glVertexAttribPointer(mScreenColorA, 4, GLES20.GL_FLOAT, false, 0, mScreenColors);
-
-//        GLES20.glVertexAttribPointer(mScreenTextureA, 2, GLES20.GL_FLOAT, false, 0, onoords);
-        if (mDimensions.equals("3d")) {
-            if (type == Eye.Type.LEFT)
-                GLES20.glVertexAttribPointer(mScreenTextureA, 2, GLES20.GL_FLOAT, false, 0, mScreenTexcoordsLeft);
-            else
-                GLES20.glVertexAttribPointer(mScreenTextureA, 2, GLES20.GL_FLOAT, false, 0, mScreenTexcoordsRight);
-        } else {
-            GLES20.glVertexAttribPointer(mScreenTextureA, 2, GLES20.GL_FLOAT, false, 0, mScreenTexcoords);
-        }
-
-        GLES20.glUniform1i(mScreenTextureU, 0);
-
-        GLES20.glDrawArrays(GLES20.GL_TRIANGLES, 0, mScreenVertices.limit() / COORDS_PER_VERTEX);
-        checkGLError("Drawing screen");
-    }
-
-    void drawCameraPreview() {
-        GLES20.glUseProgram(mScreenProgram);
-
-        GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, mCameraTexture);
-
-        synchronized (this) {
-            if (mPreviewFrameAvailable) {
-                mCameraSurfaceTexture.updateTexImage();
-                mCameraSurfaceTexture.getTransformMatrix(mCameraTextureTransform);
-                mPreviewFrameAvailable = false;
-            }
-        }
-
-        GLES20.glUniformMatrix4fv(mScreenTextureTransformU, 1, false, mCameraTextureTransform, 0);
-
-        // Set the position of the screen
-        GLES20.glVertexAttribPointer(mScreenPositionA, COORDS_PER_VERTEX, GLES20.GL_FLOAT,
-                false, 0, mScreenVertices);
-
-        // Set the ModelViewProjection matrix in the shader.
-        GLES20.glUniformMatrix4fv(mScreenModelViewProjectionA, 1, false, mModelViewProjection, 0);
-
-        GLES20.glVertexAttribPointer(mScreenTextureA, 2, GLES20.GL_FLOAT, false, 0, mScreenTexcoords);
-
-        GLES20.glUniform1i(mScreenTextureU, 0);
-
-        GLES20.glDrawArrays(GLES20.GL_TRIANGLES, 0, mScreenVertices.limit() / COORDS_PER_VERTEX);
-        checkGLError("Drawing camera preview");
-    }
-
-    /**
-     * Draw the floor.
-     * <p/>
-     * This feeds in data for the floor into the shader. Note that this doesn't feed in data about
-     * position of the light, so if we rewrite our code to draw the floor first, the lighting might
-     * look strange.
-     */
-    public void drawFloor() {
-        GLES20.glUseProgram(mEnvProgram);
-
-        // Set ModelView, MVP, position, normals, and color.
-        GLES20.glUniform3fv(mFloorLightPosParam, 1, mLightPosInEyeSpace, 0);
-        GLES20.glUniformMatrix4fv(mFloorModelParam, 1, false, mModelFloor, 0);
-        GLES20.glUniformMatrix4fv(mFloorModelViewParam, 1, false, mModelView, 0);
-        GLES20.glUniformMatrix4fv(mFloorModelViewProjectionParam, 1, false,
-                mModelViewProjection, 0);
-        GLES20.glVertexAttribPointer(mFloorPositionParam, COORDS_PER_VERTEX, GLES20.GL_FLOAT,
-                false, 0, mFloorVertices);
-        GLES20.glVertexAttribPointer(mFloorNormalParam, 3, GLES20.GL_FLOAT, false, 0,
-                mFloorNormals);
-        GLES20.glVertexAttribPointer(mFloorColorParam, 4, GLES20.GL_FLOAT, false, 0, mFloorColors);
-
-        GLES20.glDrawArrays(GLES20.GL_TRIANGLES, 0, 6);
-
-        checkGLError("drawing floor");
-    }
-
-    /**
      * Called when the Cardboard trigger is pulled.
      */
     @Override
     public void onCardboardTrigger() {
-//        int seekpos = (int) (player.getCurrentPosition() + .1 * player.getDuration()) % player.getDuration();
+        if (PreferenceManager.getDefaultSharedPreferences(this).getBoolean("pref_UseFuse", true))
+            fuseStart = -1;
 
-//        player.seekTo(seekpos);
+        boolean somethingPressed = false;
+        for (ButtonThing button : buttonList) {
+            if (button.onTrigger(mHeadView))
+                somethingPressed = true;
+        }
 
-        if (mExtraViewerMode) {
+        if (screen.onTrigger(mHeadView)) {
+            somethingPressed = true;
+        }
+            
+        if (!somethingPressed) {
             getCardboardView().resetHeadTracker();
-        }
-        else if (vncView != null) {
-            if (mX >= 0 && mX < vncView.getImageWidth()) {
-                if (mY >= 0 && mY < vncView.getImageHeight()) {
-                    vncView.processPointerEvent(mX, mY, MotionEvent.ACTION_DOWN, 0, false, false);
-                    vncView.processPointerEvent(mX, mY, MotionEvent.ACTION_UP, 0, false, false);
-                }
-            } else {
-//                getCardboardView().onPause();
-//                getCardboardView().onResume();
-                getCardboardView().resetHeadTracker();
-            }
-//                float[] v = mForwardVector;
-//                //v[2] = -v[2];
-//                mScreenYaw = (float) Math.atan2(v[0], v[2]);
-//                //mScreenYaw = - (float) Math.atan2(mForwardVector[0], -mForwardVector[2]);
-//                float deg = (float)Math.toDegrees(mScreenYaw);
-////                //Matrix.multiplyMM(mModelScreen, 0, mHeadView, 0, mModelScreen, 0);
-////                Matrix.rotateM(mModelScreen, 0, deg, 0,1,0);
-//                System.out.println("Compensating " + deg + " degrees around y");
-//
-//                float[] pos = intersectsScreen();
-//                float[] p0 = { pos[0]*FloatMath.cos(-mScreenYaw)+pos[2]*FloatMath.sin(-mScreenYaw),
-//                        pos[1],
-//                        -pos[0]*FloatMath.sin(-mScreenYaw)+pos[2]*FloatMath.cos(-mScreenYaw),
-//                        pos[3]};
-//                float ratio = (float)vncView.getImageWidth()/(float)vncView.getImageHeight();
-//
-//                int x = (int) ((p0[0]+mScreenSize*ratio)/(mScreenSize*ratio*2) * vncView.getImageWidth());
-//                int y = (int) ((p0[1]*-1+mScreenSize)/(mScreenSize*2) * vncView.getImageHeight());
-//                System.out.println("v:   " + v[0] + ", " + v[1] + ", " + v[2] + ", " + v[3]);
-//                System.out.println("pos: " + pos[0] + ", " + pos[1] + ", " + pos[2] + ", " + pos[3]);
-//                System.out.println("p0:  " + p0[0] + ", " + p0[1] + ", " + p0[2] + ", " + p0[3]);
-//                System.out.println("xy:  " + x + ", " + y);
-//                System.out.println("yaw: " + mYaw);
-            //}
-        }
-
-    }
-
-    /**
-     * Check if user is looking at object by calculating where the object is in eye-space.
-     *
-     * @return true if the user is looking at the object.
-     */
-    private boolean isLookingAtObject() {
-        float[] initVec = {0, 0, 0, 1.0f};
-        float[] objPositionVec = new float[4];
-
-        // Convert object space to camera space. Use the headView from onNewFrame.
-        Matrix.multiplyMM(mModelView, 0, mHeadView, 0, mModelScreen, 0);
-        Matrix.multiplyMV(objPositionVec, 0, mModelView, 0, initVec, 0);
-
-        float pitch = (float) Math.atan2(objPositionVec[1], -objPositionVec[2]);
-        float yaw = (float) Math.atan2(objPositionVec[0], -objPositionVec[2]);
-
-        return Math.abs(pitch) < PITCH_LIMIT && Math.abs(yaw) < YAW_LIMIT;
-    }
-
-    private float[] intersectsScreen() {
-        float[] l = mForwardVector;//new float[4];
-        l[0] = -l[0];
-        l[1] = -l[1];
-        float[] n = {0, 0, 1, 0};
-        float[] p0 = {0, 0, -mScreenDistance, 0};
-        float[] l0 = {0, 0, CAMERA_Z, 0};
-        float d;
-        float[] res = new float[4];
-
-        //Matrix.multiplyMV(l, 0, mHeadView, 0, initVec, 0);
-        float denominator = Vec4f.dot(l, n);
-        if (denominator == 0) {
-            res[3] = -1;
-            return res;
-        }
-
-        d = Vec4f.dot(Vec4f.sub(p0, l0), n) / denominator;
-        res = Vec4f.add(Vec4f.mul(d, l), l0);
-
-        return res;
-    }
-
-    @Override
-    public void onFrameAvailable(SurfaceTexture surfaceTexture) {
-        synchronized (this) {
-            if (surfaceTexture == mVideoSurfaceTexture) {
-                //System.out.println("VNC frame available");
-                mVideoFrameAvailable = true;
-            } else
-                mPreviewFrameAvailable = true;
         }
     }
 
     @Override
     public void onPause() {
         super.onPause();
-        if (player != null) player.pause();
-        if (mHWCamera != null) {
-            mHWCamera.release();        // release the camera for other applications
-            mHWCamera = null;
+        int lastpos = 0;
+        if (screen != null) {
+            screen.onPause();
         }
-        if (vncView != null) {
-            vncView.closeConnection();
-//            vncView.
+        if (cameraPreview != null) {
+            cameraPreview.onPause();
         }
+
+        SharedPreferences.Editor editor = PreferenceManager.getDefaultSharedPreferences(this).edit();
+        editor.putBoolean("pref_curvedScreen", mCurvedScreen);
+        editor.putBoolean("pref_magnify", mMagnify);
+        editor.commit();
+
     }
 
     @Override
-    public void onDestroy() {
-        super.onDestroy();
-        if (player != null) player.release();
-        if (mHWCamera != null) {
-            mHWCamera.release();        // release the camera for other applications
-            mHWCamera = null;
-        }
+    public void onStop() {
+        super.onStop();
     }
+
+   @Override
+    public void onDestroy() {
+       super.onDestroy();
+   }
 
     @Override
     public void onResume() {
         super.onResume();
-        if (player != null) player.start();
+    }
 
-        SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(this);
-        mScreenSize = Float.parseFloat(sharedPref.getString("pref_screenSize", "3"));
-//        String prefCamera = sharedPref.getString("pref_screenSize", "Medium");
-//        if (prefCamera.equals("Big")) mScreenSize = 4;
-//        else if (prefCamera.equals("Small")) mScreenSize = 2;
-//        else mScreenSize = 3;
+    @Override
+    public void onTrigger(ButtonThing thing) {
 
-        if (mHWCamera == null && mPrefCamera) {
-            mHWCamera = Camera.open();
+        if (thing == screenModeButton) {
+//            mScreenSizeMultiplier = Math.max(.75f, mScreenSizeMultiplier - .1f);
+//            screen.setSize(mScreenSize * mScreenSizeMultiplier);
+//            setupUI(mRatio);
+            mCurvedScreen = !mCurvedScreen;
+            screen.setCurveEnabled(mCurvedScreen);
+            screen.initGeometry(ratioToDegrees(mRatio));
+            screen.setupPosition(mScreenSize,mScreenHeight,-mScreenDistance);
+        }
 
-            try {
-                mHWCamera.setPreviewTexture(mCameraSurfaceTexture);
-            } catch (IOException t) {
-            }
+        if (thing == magnifyButton) {
+//            mScreenSizeMultiplier = Math.min(1.25f, mScreenSizeMultiplier + .1f);
+//            screen.setSize(mScreenSize * mScreenSizeMultiplier);
+//            setupUI(mRatio);
+            mMagnify = !mMagnify;
+            screen.setMagnifyEnabled(mMagnify);
+        }
 
-            mHWCamera.startPreview();
+        if (thing == exitButton) {
+                finish();
         }
     }
 
     @Override
     public boolean onKeyDown(int keycode, KeyEvent evt) {
-//        if (keycode = KeyEvent.KEYCODE_BACK) {
-//            return super.onKeyDown(keycode, evt);
-//        } else {
-//            return vncView.processLocalKeyEvent(keycode, evt);
-//        }
         super.onKeyDown(keycode, evt);
-        return vncView.processLocalKeyEvent(keycode, evt);
+        return screen.processKeyEvent(keycode, evt);
     }
 
     @Override
     public boolean onKeyUp(int keycode, KeyEvent evt) {
-//        if (keycode = KeyEvent.KEYCODE_BACK) {
-//            return super.onKeyDown(keycode, evt);
-//        } else {
-//            return vncView.processLocalKeyEvent(keycode, evt);
-//        }
         super.onKeyUp(keycode, evt);
-        return vncView.processLocalKeyEvent(keycode, evt);
+        return screen.processKeyEvent(keycode, evt);
     }
 
 //    @Override
-//    public boolean onTrackballEvent(MotionEvent evt) {
-//        boolean trackballButtonDown = false;
-//        switch (evt.getAction()) {
-//            case MotionEvent.ACTION_DOWN:
-//                trackballButtonDown = true;
-//                break;
-//            case MotionEvent.ACTION_UP:
-//                trackballButtonDown = false;
-//                break;
+//    public boolean onGenericMotionEvent(MotionEvent event) {
+//        if (event.getSource() == InputDevice.SOURCE_MOUSE) {
+//            switch (event.getAction()) {
+//                case MotionEvent.ACTION_HOVER_MOVE:
+//                case MotionEvent.ACTION_DOWN:
+//                case MotionEvent.ACTION_UP:
+//                    float x = event.getX() / mMetrics.widthPixels;
+//                    float y = event.getY() / mMetrics.heightPixels;
+//                    return screen.processPointerEvent(x, y, event);
+//            }
 //        }
-//        return vncView.processPointerEvent(evt, trackballButtonDown, false);
+//
+//        return super.onGenericMotionEvent(event);
 //    }
 
     @Override
-    public boolean onTouchEvent(MotionEvent event) {
-        if (event.getAction() == MotionEvent.ACTION_UP)
-            onCardboardTrigger();
-        return super.onTouchEvent(event);
-    }
+    public void onVideoSizeChange(int w, int h) {
+        mRatio = (float) w / (float) h;
+        screen.initGeometry(ratioToDegrees(mRatio));
+        screen.setupPosition(mScreenSize, mScreenHeight, -mScreenDistance);
 
-    @Override
-    public void show(String message) {
-        mOverlayView.show3DToast(message);
+        for (ButtonThing button  : buttonList) {
+            button.show();
+        }
     }
 }

@@ -26,8 +26,7 @@ public class MainActivity extends ActionBarActivity {
         ServerList.getServerList().load(this);
 
         PreferenceManager.setDefaultValues(this, R.xml.preferences, false);
-
-
+        
         AdLogic ads = new AdLogic();
         ads.loadAds(this);
 
