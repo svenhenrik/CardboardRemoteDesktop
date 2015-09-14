@@ -35,8 +35,8 @@
     <string name="action_about">About</string>
     <string name="variant_name_pro" translatable="false">pro</string>
     <string name="app_about" translatable="false">Copyright 2015, Chai Software</string>
-    <string name="app_about_fullversion" translatable="false"><![CDATA[If you like this app, please consider purchasing the <a href="market://details?id=se.chai.vrtv">full version</a> to remove ads and support further development.]]></string>
-    <string name="app_credits" translatable="false"><![CDATA[VRTV includes open source <a href="https://bitbucket.org/apacha/sensor-fusion-demo/">sensor fusion code</a>. Copyright 2013 by Alexander Pacha and the Human Technology Laboratory New Zeeland, released under the <a href=\"https://opensource.org/licenses/MIT\">MIT license</a>.]]></string>
+    <string name="app_about_fullversion" translatable="false"><![CDATA[If you like this app, please consider purchasing the <a href="market://details?id=se.chai.cardboardremotedesktop.pro">full version</a> to remove ads and support further development.]]></string>
+    <string name="app_credits" translatable="false"><![CDATA[Cardboard VNC includes open source <a href="https://bitbucket.org/apacha/sensor-fusion-demo/">sensor fusion code</a>. Copyright 2013 by Alexander Pacha and the Human Technology Laboratory New Zeeland, released under the <a href=\"https://opensource.org/licenses/MIT\">MIT license</a>.]]></string>
 
     <string-array name="pref_orientationProvider_entries" translatable="false">
         <item>"Google Cardboard SDK"</item>
