@@ -28,6 +28,7 @@ import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
+import android.hardware.SensorManager;
 import android.media.AudioManager;
 import android.opengl.GLES20;
 import android.opengl.Matrix;
@@ -37,9 +38,11 @@ import android.os.Vibrator;
 import android.preference.PreferenceManager;
 import android.util.DisplayMetrics;
 import android.util.Log;
-import android.view.InputDevice;
 import android.view.KeyEvent;
-import android.view.MotionEvent;
+
+import org.hitlabnz.sensor_fusion_demo.orientationProvider.CalibratedGyroscopeProvider;
+import org.hitlabnz.sensor_fusion_demo.orientationProvider.ImprovedOrientationSensor2Provider;
+import org.hitlabnz.sensor_fusion_demo.orientationProvider.OrientationProvider;
 
 import java.util.ArrayList;
 
@@ -52,9 +55,11 @@ import se.chai.vr.Cursor;
 import se.chai.vr.Engine;
 import se.chai.vr.EnvironmentThing;
 import se.chai.vr.FPSCounter;
+import se.chai.vr.MyCardboardView;
 import se.chai.vr.OnTriggerListener;
 import se.chai.vr.OnVideoSizeChangeListener;
 import se.chai.vr.StateButton;
+import se.chai.vr.Thing;
 import se.chai.vr.VNCScreen;
 
 /**
@@ -67,6 +72,12 @@ public class DisplayActivity extends CardboardActivity implements CardboardView.
     private static final int UI_POS_LEFT = 1;
     private static final int UI_POS_RIGHT = 2;
     private static final int UI_POS_UP = 3;
+
+    private OrientationProvider orientationProvider;
+    private String prefOrientationProviderString;
+    private int firstOnDrawEye = 2;
+    private float[] mEyeRightView;
+    private float[] mEyeLeftView;
 
     private AudioManager audio;
 
@@ -102,7 +113,8 @@ public class DisplayActivity extends CardboardActivity implements CardboardView.
        //private float[] mModelScreen;
     private float[] mCamera;
     private float[] mView;
-    private float[] mHeadView;
+    private float[] mHeadViewSDK;
+    private float[] mHeadViewUse;
     private float[] mModelViewProjection;
     private float[] mModelView;
     private float[] mOffsetView;
@@ -179,25 +191,13 @@ public class DisplayActivity extends CardboardActivity implements CardboardView.
         mCurvedScreen = PreferenceManager.getDefaultSharedPreferences(this).getBoolean("pref_curvedScreen", true);
         mMagnify = PreferenceManager.getDefaultSharedPreferences(this).getBoolean("pref_magnify", true);
 
-        //bgColor = Color.parseColor("#ffcccccc");
         r = Color.red(bgColor)/255f;
         g = Color.green(bgColor)/255f;
         b = Color.blue(bgColor)/255f;
         a = Color.alpha(bgColor)/255f;
 
         setContentView(R.layout.common_ui);
-        CardboardView cardboardView = (CardboardView) findViewById(R.id.cardboard_view);
-
-
-//        CardboardDeviceParams params = cardboardView.getCardboardDeviceParams();
-//        float lensSpacing = PreferenceManager.getDefaultSharedPreferences(this).getInt("lensSpacing",(int) (params.getInterLensDistance() * 1000)) / 1000f;
-//        float lensScreenDist = PreferenceManager.getDefaultSharedPreferences(this).getInt("lensScreenDist",(int) (params.getScreenToLensDistance() * 1000)) / 1000f;
-//        float lensVertDist = PreferenceManager.getDefaultSharedPreferences(this).getInt("lensVertDist",(int) (params.getVerticalDistanceToLensCenter() * 1000)) / 1000f;
-//        params = new CardboardDeviceParams();
-//        params.setInterLensDistance(lensSpacing);
-//        params.setScreenToLensDistance(lensScreenDist);
-//        params.setVerticalDistanceToLensCenter(lensVertDist);
-//        cardboardView.updateCardboardDeviceParams(params);
+        MyCardboardView cardboardView = (MyCardboardView) findViewById(R.id.cardboard_view);
 
         cardboardView.setRestoreGLStateEnabled(false);
         cardboardView.setRenderer(this);
@@ -235,16 +235,29 @@ public class DisplayActivity extends CardboardActivity implements CardboardView.
         mView = new float[16];
         mModelViewProjection = new float[16];
         mModelView = new float[16];
-        mHeadView = new float[16];
+        mHeadViewSDK = new float[16];
 
         mOffsetView = new float[16];
         Matrix.setIdentityM(mOffsetView, 0);
 
+        prefOrientationProviderString = PreferenceManager.getDefaultSharedPreferences(this).getString("pref_orientationProvider", "0");
+        if (prefOrientationProviderString.equals("1"))
+            cardboardView.setUseManual(true);
+        else {
+            SensorManager sensorManager = (SensorManager) getSystemService(this.SENSOR_SERVICE);
+
+            if (prefOrientationProviderString.equals("2")) {
+                orientationProvider = new ImprovedOrientationSensor2Provider(sensorManager);
+                Matrix.rotateM(mOffsetView, 0, 90, 1, 0, 0);
+            } else if (prefOrientationProviderString.equals("3")) {
+                orientationProvider = new CalibratedGyroscopeProvider(sensorManager);
+                Matrix.rotateM(mOffsetView, 0, 90, 0, 0, 1);
+            }
+        }
         mVibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
 
         mOverlayView = (CardboardOverlayView) findViewById(R.id.overlay);
 
-        screen = new VNCScreen(engine, this);
         cameraPreview = new CameraScreen(engine, this);
 
         Intent returnIntent = new Intent();
@@ -275,7 +288,7 @@ public class DisplayActivity extends CardboardActivity implements CardboardView.
     public void onSurfaceCreated(EGLConfig config) {
         Log.i(TAG, "onSurfaceCreated");
 
-        int sub = 17;
+        screen = new VNCScreen(engine, this);
 
         if (PreferenceManager.getDefaultSharedPreferences(this).getBoolean("pref_DisableDist", false)) {
             getCardboardView().setDistortionCorrectionEnabled(false);
@@ -285,17 +298,12 @@ public class DisplayActivity extends CardboardActivity implements CardboardView.
         screen.setCurveEnabled(mCurvedScreen);
         screen.setMagnifyEnabled(mMagnify);
         screen.setViewerMode(mExtraViewerMode);
-        //mScreenSize = PreferenceManager.getDefaultSharedPreferences(this).getInt("pref_screenSize2", 100) / 100.0f;
         screen.initGeometry(ratioToDegrees(16f / 9));
         screen.setupPosition(mScreenSize, mScreenHeight, -mScreenDistance);
-//        runOnUiThread(new Runnable() {
-//            @Override
-//            public void run() {
-                if (!screen.initVnc(mExtraHost, mExtraUsername, mExtraPassword, mExtraColorMode)) {
-                    finish();
-                }
-//            }
-//        });
+        if (!screen.initVnc(mExtraHost, mExtraUsername, mExtraPassword, mExtraColorMode, this)) {
+            finish();
+        }
+        screen.setFixedModel();
         screen.setupShaders();
 
         cameraPreview.init();
@@ -347,16 +355,10 @@ public class DisplayActivity extends CardboardActivity implements CardboardView.
         } else {
             screenModeButton.setInitState(1);
         }
-        //Matrix.rotateM(volumeButton.model, 0, 90, 0, 0, 1);
 
         setupUI(1.5f);
-//        for (ButtonThing button  : buttonList) {
-//            button.hide();
-//        }
 
         GLES20.glDisable(GLES20.GL_DEPTH_TEST);
-//        GLES20.glDepthMask(false);
-        //GLES20.glDisable(GLES20.GL_CULL_FACE);
 
         GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA);
         GLES20.glEnable(GLES20.GL_BLEND);
@@ -383,8 +385,7 @@ public class DisplayActivity extends CardboardActivity implements CardboardView.
 
     private void positionButton(ButtonThing button, float ratio, float x, float y, float xscale, float yscale, int pos) {
         float UI_DOWN, UI_UP, UI_LEFT, UI_RIGHT,
-                UI_XSTEP, UI_YSTEP, UI_SCALE, UI_ZPOS, UI_XROT,
-                UI_ANGLE_SIZE, UI_DIST;
+                UI_XSTEP, UI_YSTEP, UI_SCALE, UI_ZPOS, UI_XROT;
 
         UI_SCALE = .1f * mScreenSize;
         UI_XSTEP = UI_YSTEP = 2 * UI_SCALE + UI_SCALE/2; //0.25
@@ -393,7 +394,7 @@ public class DisplayActivity extends CardboardActivity implements CardboardView.
         UI_LEFT = -(mScreenSize * mScreenSizeMultiplier) - UI_XSTEP/2;
         UI_RIGHT = -UI_LEFT;
         UI_ZPOS = -mScreenDistance;
-        UI_XROT = 0;//(float) (180 * Math.atan2(-mScreenSize / ratio - UI_YSTEP * 3, -UI_ZPOS)/Math.PI);;
+        UI_XROT = 0;
 
         Matrix.setIdentityM(button.model, 0);
 
@@ -411,15 +412,16 @@ public class DisplayActivity extends CardboardActivity implements CardboardView.
             xpos = x * UI_XSTEP;
             ypos = UI_UP - y * UI_YSTEP;
         }
-        float xsize = UI_SCALE * xscale;
-        float ysize = UI_SCALE * yscale;
-        float xrot =  UI_XROT;//(float) (180 * Math.atan2(-mScreenSize -ypos, -UI_ZPOS)/Math.PI);
 
-        button.yawLimit = 1;//xsize;//(float)Math.atan2(xsize, -UI_ZPOS);
-        button.pitchLimit = 1;//ysize;//(float)Math.atan2(ysize, -UI_ZPOS);
+        button.yawLimit = 1;
+        button.pitchLimit = 1;
+
         button.rotate(UI_XROT, 1, 0, 0);
         button.translate(xpos, ypos, UI_ZPOS);
         button.scale(UI_SCALE * xscale, UI_SCALE * yscale, 1);
+
+        button.setFixedModel();
+        moveThing(button);
     }
 
     /**
@@ -436,29 +438,27 @@ public class DisplayActivity extends CardboardActivity implements CardboardView.
                 bgEnv.init(0);
             else
                 bgEnv.init(1);
+
+            bgEnv.setFixedModel();
+            moveThing(bgEnv);
         }
 
         // Build the camera matrix and apply it to the ModelView.
         Matrix.setLookAtM(mCamera, 0, 0.0f, 0.0f, CAMERA_Z, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f);
         GLES20.glClearColor(r, g, b, a);
 
-        headTransform.getHeadView(mHeadView, 0);
+        headTransform.getHeadView(mHeadViewSDK, 0);
 
-        //screen.isLookingAtObject(mHeadView);
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                if (screen.isLookingAtObject(headTransform)) {
-                    aimPoint.setAlpha(0);
-                } else {
-                    aimPoint.setAlpha(1);
-                }
-            }
-        });
+        mHeadViewUse = getHeadView();
+
+        if (screen.isLookingAtObject(mHeadViewUse)) {
+            aimPoint.setAlpha(0);
+        } else {
+            aimPoint.setAlpha(1);
+        }
 
         for (ButtonThing button : buttonList) {
-            if (button.isLookingAtObject(mHeadView) && !button.isHidden) {
-//                  aimPoint.setAlpha(.7f);
+            if (button.isLookingAtObject(mHeadViewUse) && !button.isHidden) {
                 if (fuseStart == -1) {
                     fuseStart = SystemClock.elapsedRealtime();
                     fuseButton = button;
@@ -482,7 +482,7 @@ public class DisplayActivity extends CardboardActivity implements CardboardView.
                 aimPoint.setFuse(d / prefFuseLength);
             }
             if (d > prefFuseLength) {
-                fuseButton.onTrigger(mHeadView);
+                fuseButton.onTrigger(mHeadViewUse);
                 fuseStart = -1;
                 fuseButton = null;
             }
@@ -499,9 +499,36 @@ public class DisplayActivity extends CardboardActivity implements CardboardView.
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT | GLES20.GL_DEPTH_BUFFER_BIT);
 
         Engine.checkGLError("mColorParam");
+        if (!prefOrientationProviderString.equals("0")) {
+            if (firstOnDrawEye > 0) {
+                firstOnDrawEye--;
+                float[] m = new float[16];
+                Matrix.invertM(m, 0, mHeadViewSDK, 0);
+                Matrix.multiplyMM(m, 0, eye.getEyeView(), 0, m, 0);
+
+                if (eye.getType() == Eye.Type.RIGHT) {
+                    mEyeRightView = m;
+                } else if (eye.getType() == Eye.Type.LEFT) {
+                    mEyeLeftView = m;
+                }
+
+                return;
+            }
+
+            // Apply the eye transformation to the camera.
+            float[] m = new float[16];
+            if (eye.getType() == Eye.Type.RIGHT) {
+                Matrix.multiplyMM(m, 0, mHeadViewUse, 0, mEyeRightView, 0);
+            } else {
+                Matrix.multiplyMM(m, 0, mHeadViewUse, 0, mEyeLeftView, 0);
+            }
+
+            Matrix.multiplyMM(mView, 0, m, 0, mCamera, 0);
+        } else {
+            Matrix.multiplyMM(mView, 0, eye.getEyeView(), 0, mCamera, 0);
+        }
 
         // Apply the eye transformation to the camera.
-        Matrix.multiplyMM(mView, 0, eye.getEyeView(), 0, mCamera, 0);
 
         // Build the ModelView and ModelViewProjection matrices
         // for calculating screen position and light.
@@ -525,9 +552,7 @@ public class DisplayActivity extends CardboardActivity implements CardboardView.
         Matrix.multiplyMM(mModelViewProjection, 0, perspective, 0, cameraPreview.model, 0);
         cameraPreview.draw(eye.getType(), mModelViewProjection);
 
-        float[] tmp = new float[16];
-        Matrix.multiplyMM(tmp, 0, mOffsetView, 0, screen.model, 0);
-        Matrix.multiplyMM(mModelView, 0, mView, 0, tmp, 0);
+        Matrix.multiplyMM(mModelView, 0, mView, 0, screen.model, 0);
         Matrix.multiplyMM(mModelViewProjection, 0, perspective, 0, mModelView, 0);
         screen.draw(eye.getType(), mModelViewProjection);
 
@@ -555,16 +580,17 @@ public class DisplayActivity extends CardboardActivity implements CardboardView.
 
         boolean somethingPressed = false;
         for (ButtonThing button : buttonList) {
-            if (button.onTrigger(mHeadView))
+            if (button.onTrigger(mHeadViewUse))
                 somethingPressed = true;
         }
 
-        if (screen.onTrigger(mHeadView)) {
+        if (screen.onTrigger(mHeadViewUse)) {
             somethingPressed = true;
         }
             
         if (!somethingPressed) {
-            getCardboardView().resetHeadTracker();
+            Matrix.invertM(mOffsetView, 0, mView, 0);
+            moveall();
         }
     }
 
@@ -577,6 +603,9 @@ public class DisplayActivity extends CardboardActivity implements CardboardView.
         }
         if (cameraPreview != null) {
             cameraPreview.onPause();
+        }
+        if (orientationProvider != null) {
+            orientationProvider.stop();
         }
 
         SharedPreferences.Editor editor = PreferenceManager.getDefaultSharedPreferences(this).edit();
@@ -599,25 +628,25 @@ public class DisplayActivity extends CardboardActivity implements CardboardView.
     @Override
     public void onResume() {
         super.onResume();
+
+        if (orientationProvider != null) {
+            orientationProvider.start();
+        }
     }
 
     @Override
     public void onTrigger(ButtonThing thing) {
 
         if (thing == screenModeButton) {
-//            mScreenSizeMultiplier = Math.max(.75f, mScreenSizeMultiplier - .1f);
-//            screen.setSize(mScreenSize * mScreenSizeMultiplier);
-//            setupUI(mRatio);
             mCurvedScreen = !mCurvedScreen;
             screen.setCurveEnabled(mCurvedScreen);
             screen.initGeometry(ratioToDegrees(mRatio));
-            screen.setupPosition(mScreenSize,mScreenHeight,-mScreenDistance);
+            screen.setupPosition(mScreenSize, mScreenHeight, -mScreenDistance);
+            screen.setFixedModel();
+            moveThing(screen);
         }
 
         if (thing == magnifyButton) {
-//            mScreenSizeMultiplier = Math.min(1.25f, mScreenSizeMultiplier + .1f);
-//            screen.setSize(mScreenSize * mScreenSizeMultiplier);
-//            setupUI(mRatio);
             mMagnify = !mMagnify;
             screen.setMagnifyEnabled(mMagnify);
         }
@@ -639,30 +668,47 @@ public class DisplayActivity extends CardboardActivity implements CardboardView.
         return screen.processKeyEvent(keycode, evt);
     }
 
-//    @Override
-//    public boolean onGenericMotionEvent(MotionEvent event) {
-//        if (event.getSource() == InputDevice.SOURCE_MOUSE) {
-//            switch (event.getAction()) {
-//                case MotionEvent.ACTION_HOVER_MOVE:
-//                case MotionEvent.ACTION_DOWN:
-//                case MotionEvent.ACTION_UP:
-//                    float x = event.getX() / mMetrics.widthPixels;
-//                    float y = event.getY() / mMetrics.heightPixels;
-//                    return screen.processPointerEvent(x, y, event);
-//            }
-//        }
-//
-//        return super.onGenericMotionEvent(event);
-//    }
 
     @Override
     public void onVideoSizeChange(int w, int h) {
         mRatio = (float) w / (float) h;
         screen.initGeometry(ratioToDegrees(mRatio));
         screen.setupPosition(mScreenSize, mScreenHeight, -mScreenDistance);
+        screen.setFixedModel();
+        moveThing(screen);
 
         for (ButtonThing button  : buttonList) {
             button.show();
         }
     }
+
+    private void moveall() {
+        if (prefShowEnv) {
+            moveThing(bgEnv);
+        }
+        moveThing(screen);
+        for (ButtonThing button : buttonList) {
+            moveThing(button);
+        }
+
+    }
+
+    private void moveThing(Thing thing) {
+        Matrix.multiplyMM(thing.model, 0, mOffsetView, 0, thing.getFixedModel(), 0);
+    }
+
+    public float[] getHeadView() {
+        if (prefOrientationProviderString.equals("0")) {
+            return mHeadViewSDK;
+        } else if (prefOrientationProviderString.equals("1")) {
+            return ((MyCardboardView)getCardboardView()).getRotMatrix();
+        }
+
+        //else
+        float[] m = new float[16];
+        SensorManager.remapCoordinateSystem(orientationProvider.getRotationMatrix().getMatrix(),
+                SensorManager.AXIS_Y, SensorManager.AXIS_MINUS_X, m);
+        return m;
+    }
+
 }

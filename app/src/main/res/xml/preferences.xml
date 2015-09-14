@@ -38,6 +38,10 @@
         android:key="pref_bgColor"
         android:title="@string/pref_bgColor_title"
         android:summary="@string/pref_bgColor_summary"/>
+    <CheckBoxPreference
+        android:defaultValue="true"
+        android:key="pref_useLocalCursor"
+        android:title="@string/pref_useLocalCursor_title" />
     <!--<ListPreference-->
             <!--android:key="pref_screenType"-->
             <!--android:title="@string/pref_screenType"-->
@@ -47,6 +51,12 @@
             <!--android:defaultValue="@string/pref_screenType_default" />-->
     <!--    </PreferenceCategory>-->
     <PreferenceCategory android:title="@string/pref_category_headset_title">
+        <ListPreference
+            android:key="pref_orientationProvider"
+            android:entries="@array/pref_orientationProvider_entries"
+            android:entryValues="@array/pref_orientationProvider_values"
+            android:defaultValue="0"
+            android:title="@string/pref_orientationProvider_title" />
         <se.chai.cardboardremotedesktop.SeekBarPreference
             android:key="pref_lensSpacing"
             android:title="@string/pref_lensSpacing_title"

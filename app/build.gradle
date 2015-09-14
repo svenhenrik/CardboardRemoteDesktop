@@ -13,10 +13,10 @@ android {
     buildToolsVersion "21.1.2"
     defaultConfig {
         applicationId "se.chai.cardboardremotedesktop"
-        minSdkVersion 14
+        minSdkVersion 15
         targetSdkVersion 21
-        versionCode 3
-        versionName "1.2"
+        versionCode 4
+        versionName "1.3"
     }
     buildTypes {
         release {

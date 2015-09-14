@@ -6,7 +6,7 @@
     android:layout_height="fill_parent" >
 
 
-    <com.google.vrtoolkit.cardboard.CardboardView
+    <se.chai.vr.MyCardboardView
         android:id="@+id/cardboard_view"
         android:layout_width="fill_parent"
         android:layout_height="fill_parent"
@@ -21,8 +21,8 @@
         android:layout_alignParentTop="true" />
 
     <view
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_width="fill_parent"
+        android:layout_height="fill_parent"
         class="android.androidVNC.VncView"
         android:id="@+id/vncview"
         android:layout_centerVertical="true"

@@ -11,18 +11,16 @@ import android.graphics.SurfaceTexture;
 import android.opengl.GLES11Ext;
 import android.opengl.GLES20;
 import android.opengl.Matrix;
-import android.util.FloatMath;
+import android.preference.PreferenceManager;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.Surface;
-import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.RelativeLayout;
 
 import com.google.vrtoolkit.cardboard.Eye;
-import com.google.vrtoolkit.cardboard.HeadTransform;
 
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -62,13 +60,20 @@ public class VNCScreen extends TexturedThing implements SurfaceTexture.OnFrameAv
 
     private int mouseU;
     private int aspectU;
+    private int centerU;
+    private int magU;
+
     private boolean magnifyEnabled;
     private boolean curveEnabled;
     private boolean viewerMode;
+    private boolean useLocalMouse;
+
+    public static final int TEXTURE_MAX_SIZE = 4096;
 
     public VNCScreen(Engine engine, Context context) {
         super(engine);
         this.context = context;
+        useLocalMouse = PreferenceManager.getDefaultSharedPreferences(context).getBoolean("pref_useLocalCursor", true);
     }
 
     @Override
@@ -94,6 +99,8 @@ public class VNCScreen extends TexturedThing implements SurfaceTexture.OnFrameAv
 
         mouseU = GLES20.glGetUniformLocation(program, "u_Mouse");
         aspectU = GLES20.glGetUniformLocation(program, "u_Aspect");
+        centerU = GLES20.glGetUniformLocation(program, "u_Center");
+        magU = GLES20.glGetUniformLocation(program, "u_Mag");
 
         //mScreenModelA = GLES20.glGetUniformLocation(screen.program, "u_Model");
         //mScreenModelViewA = GLES20.glGetUniformLocation(screen.program, "u_MVMatrix");
@@ -137,14 +144,13 @@ public class VNCScreen extends TexturedThing implements SurfaceTexture.OnFrameAv
         return true;
     }
 
-    public boolean initVnc(String host, String userName, String password, String colorMode) {
+    public boolean initVnc(String host, String userName, String password, String colorMode, Context con) {
         mExtraHost = host;
         mExtraUsername = userName;
         mExtraPassword = password;
         mExtraColorMode = colorMode;
 
-//        vncView = new VncView(context, null);
-        vncView = (VncView) ((Activity)context).findViewById(R.id.vncview);
+        vncView = (VncView) ((Activity)con).findViewById(R.id.vncview);
 
         connection = new ConnectionBean();
 
@@ -171,9 +177,7 @@ public class VNCScreen extends TexturedThing implements SurfaceTexture.OnFrameAv
                     break;
             }
             connection.setColorModel(colorModel);
-            //connection.setScaleModeAsString(ImageView.ScaleType.FIT_CENTER.toString());
             connection.setForceFull(BitmapImplHint.FULL);
-            connection.setUseLocalCursor(true);
 
         } catch (MalformedURLException e) {
             e.printStackTrace();
@@ -229,21 +233,16 @@ public class VNCScreen extends TexturedThing implements SurfaceTexture.OnFrameAv
         int w = vncView.getImageWidth();
         int h = vncView.getImageHeight();
         ratio = (float) w / (float) h;
-        int texturmaxsize = 4096;
-        if (w > texturmaxsize) { // pref
-            w = texturmaxsize;
-            h = (int)(texturmaxsize/ratio);
+
+        if (w > TEXTURE_MAX_SIZE) { // pref
+            w = TEXTURE_MAX_SIZE;
+            h = (int)(TEXTURE_MAX_SIZE /ratio);
         }
         mVideoSurfaceTexture.setDefaultBufferSize(w,h);
-
-        System.out.println("Cardboard VNC: " + vncView.getImageWidth() + ", " + vncView.getImageHeight());
 
         mVideoSurface = new Surface(mVideoSurfaceTexture);
         mVideoTextureTransform = new float[16];
         mVideoSurfaceTexture.getTransformMatrix(mVideoTextureTransform);
-
-        //Matrix.translateM(model, 0, 0, height, distance);
-        //Matrix.scaleM(model, 0, size, size, size);
 
         FrameLayout.LayoutParams p = new FrameLayout.LayoutParams(RelativeLayout.LayoutParams.WRAP_CONTENT, RelativeLayout.LayoutParams.WRAP_CONTENT);
         p.height = h; p.width = w;
@@ -271,32 +270,25 @@ public class VNCScreen extends TexturedThing implements SurfaceTexture.OnFrameAv
         return false;
     }
 
-    public boolean isLookingAtObject(HeadTransform headTransform) {
+    @Override
+    public boolean isLookingAtObject(float[] view) {
         if (curveEnabled) {
-            final float[] euler = new float[3];
-            headTransform.getEulerAngles(euler, 0);
-
+            float[] res = new float[16];
+            Matrix.multiplyMM(res, 0, view, 0, model, 0);
+            float[] euler = new float[3];
+            Vec4f.getEulerAngles(euler, 0, res);
             return isLookingAtObjectEuler(euler);
         } else {
-            final float[] headView = new float[16];
-            headTransform.getHeadView(headView, 0);
-
-            return isLookingAtObject(headView);
+            return isLookingAtObjectMatrix(view);
         }
     }
 
-    @Override
-    public boolean isLookingAtObject(float[] mHeadView) {
+    public boolean isLookingAtObjectMatrix(float[] mHeadView) {
         if (!mVncReady)
             return false;
 
         float[] dist = intersects(mHeadView);
 
-        float pitch = dist[1];
-        float yaw = dist[0];
-
-//        mX = (int) ((dist[0] + size * ratio) / (size * ratio) * vncView.getImageWidth());
-//        mY = (int) ((dist[1] * -1 + size) / (size) * vncView.getImageHeight());
         mX = (int) ((dist[0] + 1)/2.0f * vncView.getImageWidth());
         mY = (int) ((-dist[1] + 1)/2.0f * vncView.getImageHeight());
         Log.d("VNC", "dist[0,1] : (" + dist[0] + ", " + dist[1] + ")  --  MX, MY : (" + mX + ", " + mY + ")");
@@ -338,11 +330,13 @@ public class VNCScreen extends TexturedThing implements SurfaceTexture.OnFrameAv
 
         GLES20.glVertexAttribPointer(textureA, 2, GLES20.GL_FLOAT, false, 0, texCords);
         GLES20.glUniform1f(aspectU, ratio);
+        GLES20.glUniform1f(centerU, useLocalMouse ? 0.005f : 0.0f);
         if (magnifyEnabled) {
-            GLES20.glUniform2f(mouseU, (float) mX / vncView.getImageWidth(), (float) mY / vncView.getImageHeight());
+            GLES20.glUniform1f(magU, 1.5f);
         } else {
-            GLES20.glUniform2f(mouseU, -1, -1);
+            GLES20.glUniform1f(magU, 1.0f);
         }
+        GLES20.glUniform2f(mouseU, (float) mX / vncView.getImageWidth(), (float) mY / vncView.getImageHeight());
 
         GLES20.glUniform1i(textureU, 0);
         GLES20.glDrawArrays(GLES20.GL_TRIANGLES, 0, vertices.limit()/ Thing.COORDS_PER_VERTEX);
@@ -375,9 +369,9 @@ public class VNCScreen extends TexturedThing implements SurfaceTexture.OnFrameAv
         return false;
     }
 
-    public boolean processPointerEvent(float x, float y) {
+    public boolean processPointerEvent(int x, int y) {
         if (vncView != null) {
-            return vncView.processPointerEvent((int) (x * vncView.getImageWidth()), (int) (y * vncView.getImageHeight()), MotionEvent.ACTION_MOVE, 0, false, false);
+            return vncView.processPointerEvent(x, y, MotionEvent.ACTION_MOVE, 0, false, false);
         }
 
         return false;
@@ -389,7 +383,6 @@ public class VNCScreen extends TexturedThing implements SurfaceTexture.OnFrameAv
 
     public boolean isLookingAtObjectEuler(float[] euler) {
         float rotY, rotX;
-        float fPI = (float)Math.PI/2;
 
         if (!mVncReady)
             return false;
@@ -398,8 +391,6 @@ public class VNCScreen extends TexturedThing implements SurfaceTexture.OnFrameAv
         rotY = -euler[1] + mSpanRads/2;
         mX = (int)((rotY / mSpanRads) * vncView.getImageWidth());
         mY = (int)((Math.tan(rotX) + .5)* vncView.getImageHeight());
-
-//        Log.d("VNC", String.format("Euler: (%.2f, %.2f, %.2f), Object: (%.2f, %.2f), Mouse: (%d, %d)",euler[0],euler[1],euler[2], rotY, rotX, mX,mY));
 
         if (mX >= 0 && mX < vncView.getImageWidth()) {
             if (mY >= 0 && mY < vncView.getImageHeight()) {

@@ -50,7 +50,7 @@ public class SettingsActivity extends ActionBarActivity {
         float lensSpacing = PreferenceManager.getDefaultSharedPreferences(this).getInt("pref_lensSpacing",(int) (params.getInterLensDistance() * 1000)) / 1000f;
         float lensScreenDist = PreferenceManager.getDefaultSharedPreferences(this).getInt("pref_lensScreenDist",(int) (params.getScreenToLensDistance() * 1000)) / 1000f;
         float lensVertDist = PreferenceManager.getDefaultSharedPreferences(this).getInt("pref_lensVertDist",(int) (params.getVerticalDistanceToLensCenter() * 1000)) / 1000f;
-        params = new CardboardDeviceParams();
+        params = new CardboardDeviceParams(params);
         params.setInterLensDistance(lensSpacing);
         params.setScreenToLensDistance(lensScreenDist);
         params.setVerticalDistanceToLensCenter(lensVertDist);

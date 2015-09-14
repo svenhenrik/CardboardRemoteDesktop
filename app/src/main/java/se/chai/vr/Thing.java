@@ -27,6 +27,7 @@ public class Thing {
     public int modelViewProjectionA;
 
     public float[] model;
+    public float[] fixedmodel;
 
     public void setupShaders() {}
 
@@ -38,6 +39,7 @@ public class Thing {
     public Thing(Engine engine) {
         this.engine = engine;
         this.model = new float[16];
+        this.fixedmodel = new float[16];
     }
 
     @Override
@@ -154,6 +156,19 @@ public class Thing {
 //        di[1] = res[1];
 
         return res;
+    }
+
+
+    public void setFixedModel() {
+        System.arraycopy(model, 0, fixedmodel, 0, 16);
+    }
+
+    public float[] getFixedModel() {
+        if (fixedmodel != null) {
+            return fixedmodel;
+        } else {
+            return model;
+        }
     }
 
 }

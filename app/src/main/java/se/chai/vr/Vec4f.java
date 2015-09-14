@@ -76,4 +76,25 @@ public class Vec4f {
 
         return m;
     }
+
+    public static void getEulerAngles(float[] eulerAngles, int offset, float[] mHeadView) {
+        if (offset + 3 > eulerAngles.length) {
+            throw new IllegalArgumentException(
+                    "Not enough space to write the result");
+        }
+        float pitch = (float) Math.asin(mHeadView[6]);
+        float roll;
+        float yaw;
+        if (FloatMath.sqrt(1.0F - mHeadView[6] * mHeadView[6]) >= 0.01F) {
+            yaw = (float) Math.atan2(-mHeadView[2],
+                    mHeadView[10]);
+            roll = (float) Math.atan2(-mHeadView[4], mHeadView[5]);
+        } else {
+            yaw = 0.0F;
+            roll = (float) Math.atan2(mHeadView[1], mHeadView[0]);
+        }
+        eulerAngles[(offset + 0)] = (-pitch);
+        eulerAngles[(offset + 1)] = (-yaw);
+        eulerAngles[(offset + 2)] = (-roll);
+    }
 }

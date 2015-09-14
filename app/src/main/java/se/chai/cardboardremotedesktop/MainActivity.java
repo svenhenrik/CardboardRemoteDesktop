@@ -1,5 +1,7 @@
 package se.chai.cardboardremotedesktop;
 
+import android.app.AlertDialog;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
@@ -9,12 +11,15 @@ import android.support.v4.app.FragmentActivity;
 import android.support.v7.app.ActionBarActivity;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.text.Html;
+import android.text.method.LinkMovementMethod;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageButton;
+import android.widget.TextView;
 
 
 public class MainActivity extends ActionBarActivity {
@@ -64,6 +69,41 @@ public class MainActivity extends ActionBarActivity {
             Intent intent = new Intent(this, SettingsActivity.class);
             startActivity(intent);
 
+        }else if (id == R.id.action_about) {
+            View messageView = getLayoutInflater().inflate(R.layout.about, null, false);
+
+            TextView textView = null;
+            if (!BuildConfig.FLAVOR.equals(getString(R.string.variant_name_pro))) {
+                textView = (TextView) messageView.findViewById(R.id.about_fullversion);
+                textView.setText(Html.fromHtml(getString(R.string.app_about_fullversion)));
+            }
+
+            TextView textView2 = (TextView) messageView.findViewById(R.id.about_credits);
+            textView2.setText(Html.fromHtml(getString(R.string.app_credits)));
+
+            new AlertDialog.Builder(this)
+                    .setTitle(getString(R.string.app_name))
+                    .setIcon(R.drawable.ic_launcher)
+                    .setView(messageView)
+                    .setPositiveButton("Close", new DialogInterface.OnClickListener() {
+                        public void onClick(DialogInterface dialog, int whichButton) {
+                            // Do nothing.
+                        }
+                    })
+                    .show();
+
+
+            if (textView != null)
+                textView.setMovementMethod(LinkMovementMethod.getInstance());
+            textView2.setMovementMethod(LinkMovementMethod.getInstance());
+
+//        } else if (id == R.id.action_purchase) {
+//            Intent launchIntent = getPackageManager().getLaunchIntentForPackage("com.android.vending");
+//            ComponentName comp = new ComponentName("com.android.vending", "com.google.android.finsky.activities.LaunchUrlHandlerActivity"); // package name and activity
+//            launchIntent.setComponent(comp);
+//            launchIntent.setData(Uri.parse("market://details?id=se.chai.vrtv"));
+//
+//            startActivity(launchIntent);
         }
 
         return super.onOptionsItemSelected(item);

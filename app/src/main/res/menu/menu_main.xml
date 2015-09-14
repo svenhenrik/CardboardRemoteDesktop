@@ -5,4 +5,8 @@
         android:orderInCategory="100" app:showAsAction="ifRoom"
         android:tint="@android:color/white"
         android:icon="@drawable/ic_settings"/>
+    <item android:id="@+id/action_about" android:title="@string/action_about"
+        android:orderInCategory="100" app:showAsAction="always"
+        android:icon="@drawable/ic_menu_info_details" />
+
 </menu>
