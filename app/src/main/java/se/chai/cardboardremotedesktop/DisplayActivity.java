@@ -235,10 +235,13 @@ public class DisplayActivity extends CardboardActivity implements CardboardView.
         mView = new float[16];
         mModelViewProjection = new float[16];
         mModelView = new float[16];
-        mHeadViewSDK = new float[16];
 
+        mHeadViewSDK = new float[16];
+        mHeadViewUse = new float[16];
         mOffsetView = new float[16];
         Matrix.setIdentityM(mOffsetView, 0);
+        Matrix.setIdentityM(mHeadViewSDK, 0);
+        Matrix.setIdentityM(mHeadViewUse, 0);
 
         prefOrientationProviderString = PreferenceManager.getDefaultSharedPreferences(this).getString("pref_orientationProvider", "0");
         if (prefOrientationProviderString.equals("1"))

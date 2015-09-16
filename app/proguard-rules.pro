@@ -18,6 +18,7 @@
 
 -keep class com.google.vrtoolkit.cardboard.** { *; }
 -keep class com.antlersoft.android.** { *; }
+-keep class se.chai.** { *; }
 -dontwarn com.google.**
 -assumenosideeffects class android.util.Log {
     public static *** d(...);

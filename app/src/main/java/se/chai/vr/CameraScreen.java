@@ -38,6 +38,8 @@ public class CameraScreen extends TexturedThing implements SurfaceTexture.OnFram
 
     private int mouseU;
     private int aspectU;
+    private int centerU;
+    private int magU;
 
     private Context context;
 
@@ -66,6 +68,8 @@ public class CameraScreen extends TexturedThing implements SurfaceTexture.OnFram
 
         mouseU = GLES20.glGetUniformLocation(program, "u_Mouse");
         aspectU = GLES20.glGetUniformLocation(program, "u_Aspect");
+        centerU = GLES20.glGetUniformLocation(program, "u_Center");
+        magU = GLES20.glGetUniformLocation(program, "u_Mag");
 
         //mScreenModelA = GLES20.glGetUniformLocation(screen.program, "u_Model");
         //mScreenModelViewA = GLES20.glGetUniformLocation(screen.program, "u_MVMatrix");
@@ -178,6 +182,8 @@ public class CameraScreen extends TexturedThing implements SurfaceTexture.OnFram
         GLES20.glUniform1i(textureU, 0);
         GLES20.glUniform1f(aspectU, 1);
         GLES20.glUniform2f(mouseU, -1, -1);
+        GLES20.glUniform1f(centerU, 0.0f);
+        GLES20.glUniform1f(magU, 1.0f);
 
         GLES20.glDrawArrays(GLES20.GL_TRIANGLES, 0, vertices.limit()/ Thing.COORDS_PER_VERTEX);
     }
