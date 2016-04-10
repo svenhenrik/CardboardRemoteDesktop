@@ -4,6 +4,9 @@
         <item>24bit</item>
         <item>256</item>
         <item>64</item>
+        <item>8</item>
+        <item>4</item>
+        <item>2</item>
     </string-array>
 
     <string-array name="pref_screenSize_entries">
