@@ -141,6 +141,8 @@ public class VncView extends ImageView {
 		scrollRunnable = new MouseScrollRunnable();
 		handleRREPaint = new Paint();
 		handleRREPaint.setStyle(Style.FILL);
+		this.setFocusable(true);
+		this.requestFocus();
 //
 //         setLayoutParams(new ViewGroup.LayoutParams(1024, 768));
 //        setDrawingCacheEnabled(true);
