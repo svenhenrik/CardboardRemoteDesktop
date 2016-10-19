@@ -141,6 +141,8 @@ public class VncView extends ImageView {
 		scrollRunnable = new MouseScrollRunnable();
 		handleRREPaint = new Paint();
 		handleRREPaint.setStyle(Style.FILL);
+		this.setFocusable(true);
+		this.requestFocus();
 //
 //         setLayoutParams(new ViewGroup.LayoutParams(1024, 768));
 //        setDrawingCacheEnabled(true);
@@ -939,10 +941,50 @@ public class VncView extends ImageView {
 		      case KeyEvent.KEYCODE_DEL: 		  key = 0xff08; break;
 		      case KeyEvent.KEYCODE_ENTER:        key = 0xff0d; break;
 		      case KeyEvent.KEYCODE_DPAD_CENTER:  key = 0xff0d; break;
-		      default: 							  
-		    	  key = evt.getUnicodeChar();
-		    	  metaState = 0;
-		    	  break;
+			  case KeyEvent.KEYCODE_TAB:          key = 0xff09; break;
+			  case KeyEvent.KEYCODE_ALT_LEFT:     key = 0xffe9; break;
+			  case KeyEvent.KEYCODE_ALT_RIGHT:    key = 0xffea; break;
+			  case 92 /* KEYCODE_PAGE_UP */:      key = 0xff55; break;
+			  case 93 /* KEYCODE_PAGE_DOWN */:    key = 0xff56; break;
+			  case 111 /* KEYCODE_ESCAPE */:      key = 0xff1b; break;
+			  case 112 /* KEYCODE_FORWARD_DEL */: key = 0xffff; break;
+			  case 113 /* KEYCODE_CTRL_LEFT */:   key = 0xffe3; break;
+			  case 114 /* KEYCODE_CTRL_RIGHT */:  key = 0xffe4; break;
+			  case 115 /* KEYCODE_CAPS_LOCK */:   key = 0xffe5; break;
+			  case 116 /* KEYCODE_SCROLL_LOCK */: key = 0xff14; break;
+			  case 120 /* KEYCODE_SYSRQ */:       key = 0xff61; break;
+			  case 121 /* KEYCODE_BREAK */:       key = 0xff6b; break;
+			  case 122 /* KEYCODE_MOVE_HOME */:   key = 0xff50; break;
+			  case 123 /* KEYCODE_MOVE_END */:    key = 0xff57; break;
+			  case 124 /* KEYCODE_INSERT */:      key = 0xff63; break;
+			  case 131 /* KEYCODE_F1 */:          key = 0xffbe; break;
+			  case 132 /* KEYCODE_F2 */:          key = 0xffbf; break;
+			  case 133 /* KEYCODE_F3 */:          key = 0xffc0; break;
+			  case 134 /* KEYCODE_F4 */:          key = 0xffc1; break;
+			  case 135 /* KEYCODE_F5 */:          key = 0xffc2; break;
+			  case 136 /* KEYCODE_F6 */:          key = 0xffc3; break;
+			  case 137 /* KEYCODE_F7 */:          key = 0xffc4; break;
+			  case 138 /* KEYCODE_F8 */:          key = 0xffc5; break;
+			  case 139 /* KEYCODE_F9 */:          key = 0xffc6; break;
+			  case 140 /* KEYCODE_F10 */:         key = 0xffc7; break;
+			  case 141 /* KEYCODE_F11 */:         key = 0xffc8; break;
+			  case 142 /* KEYCODE_F12 */:         key = 0xffc9; break;
+			  case 143 /* KEYCODE_NUM_LOCK */:    key = 0xff7f; break;
+		      default:
+				  // Modifier handling is a bit tricky. Alt and Ctrl should be passed
+				  // through to the VNC server so that they get handled there, but strip
+				  // them from the character before retrieving the Unicode char from it.
+				  // Don't clear Shift, we still want uppercase characters.
+				  int vncEventMask = ( 0x7000 /* KeyEvent.META_CTRL_MASK */
+						  | 0x0032 /* KeyEvent.META_ALT_MASK */
+				  );
+				  KeyEvent copy = new KeyEvent(evt.getDownTime(), evt.getEventTime(), evt.getAction(),
+						  evt.getKeyCode(), evt.getRepeatCount(),
+						  metaState & ~vncEventMask,
+						  evt.getDeviceId(), evt.getScanCode());
+				  key = copy.getUnicodeChar();
+				  metaState &= vncEventMask;
+				  break;
 		    }
 	    	try {
 	    		if (afterMenu)
@@ -966,7 +1008,7 @@ public class VncView extends ImageView {
 	public void closeConnection() {
 		maintainConnection = false;
 	}
-	
+
 	void sendMetaKey(MetaKeyBean meta)
 	{
 		if (meta.isMouseClick())
@@ -991,12 +1033,12 @@ public class VncView extends ImageView {
 			}
 		}
 	}
-	
+
 	float getScale()
 	{
 		return 1;
 	}
-	
+
 	public int getVisibleWidth() {
 		return (int)((double)getWidth() / getScale() + 0.5);
 	}
